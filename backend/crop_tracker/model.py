@@ -1,20 +1,18 @@
 import sqlite3
 import os
 
-# Get base directory (backend folder)
+# Path: backend/shared_db/database.db
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-
-# Path to database file
-DB_PATH = os.path.join(BASE_DIR, "database.db")
+DB_PATH = os.path.join(BASE_DIR, "shared_db", "database.db")
 
 def get_db():
-    """Return a connection to SQLite database."""
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # allows dict-like access
+    conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
-    """Create tables if they do not exist."""
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
     conn = get_db()
     cur = conn.cursor()
 
