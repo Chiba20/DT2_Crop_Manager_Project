@@ -1,9 +1,10 @@
 import sqlite3
 import os
 
-# Path: backend/shared_db/database.db
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 DB_PATH = os.path.join(BASE_DIR, "shared_db", "database.db")
+
+print("USING DATABASE:", DB_PATH)   # <--- ADD THIS LINE
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -12,11 +13,9 @@ def get_db():
 
 def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-
     conn = get_db()
     cur = conn.cursor()
 
-    # Create crops table
     cur.execute("""
         CREATE TABLE IF NOT EXISTS crops (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,7 +25,6 @@ def init_db():
         )
     """)
 
-    # Create harvests table
     cur.execute("""
         CREATE TABLE IF NOT EXISTS harvests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
