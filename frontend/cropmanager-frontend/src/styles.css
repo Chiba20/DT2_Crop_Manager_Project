@@ -1,0 +1,3 @@
+body { margin: 0; font-family: Arial, sans-serif; background: #f6f8f6; color: #222; }
+input, select, button { border-radius: 6px; border: 1px solid #ccc; }
+button { background: #2f9f65; color: #fff; border: none; }

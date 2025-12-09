@@ -1,21 +1,20 @@
 import sqlite3
 import os
 
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "shared_db", "database.db")
 
-print("USING DATABASE:", DB_PATH)   # <--- ADD THIS LINE
-
 def get_db():
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = get_db()
     cur = conn.cursor()
 
+    # CROPS TABLE
     cur.execute("""
         CREATE TABLE IF NOT EXISTS crops (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,6 +24,7 @@ def init_db():
         )
     """)
 
+    # HARVEST TABLE
     cur.execute("""
         CREATE TABLE IF NOT EXISTS harvests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,6 +32,15 @@ def init_db():
             date TEXT NOT NULL,
             yield_amount REAL NOT NULL,
             FOREIGN KEY (crop_id) REFERENCES crops(id)
+        )
+    """)
+
+    # USERS TABLE
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
         )
     """)
 

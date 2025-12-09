@@ -7,9 +7,9 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = "MYSECRET"
 
 CORS(app)
+
 init_db()
 
-# Register blueprints
 app.register_blueprint(crop_routes)
 app.register_blueprint(auth_routes)
 
