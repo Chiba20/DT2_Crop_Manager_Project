@@ -2,7 +2,9 @@ import sqlite3
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "shared_db", "database.db")
+PROJECT_ROOT = os.path.dirname(BASE_DIR)   # go one level up
+DB_PATH = os.path.join(PROJECT_ROOT, "database.db")
+
 
 def get_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
