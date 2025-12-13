@@ -1,0 +1,81 @@
+.dashboard {
+    padding: 30px;
+    background: #f1f8f4;
+    min-height: 100vh;
+}
+
+.dashboard h1 {
+    color: #2e7d32;
+    margin-bottom: 20px;
+}
+
+.add-crop-btn {
+    background: #2e7d32;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 25px;
+    font-size: 16px;
+}
+
+.add-crop-btn:hover {
+    background: #1b5e20;
+}
+
+/* Grid layout for crops */
+.crops-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    max-height: 75vh; /* optional scrollable height */
+    overflow-y: auto;
+    padding-right: 5px; /* for scrollbar */
+}
+
+/* Crop card styles */
+.crop-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    text-align: center;
+}
+
+.crop-card h3 {
+    color: #2e7d32;
+    margin-bottom: 10px;
+}
+
+.crop-card p {
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.crop-card button {
+    background: #2e7d32;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.crop-card button:hover {
+    background: #1b5e20;
+}
+
+/* Scrollbar style */
+.crops-grid::-webkit-scrollbar {
+    width: 8px;
+}
+
+.crops-grid::-webkit-scrollbar-thumb {
+    background: rgba(46, 125, 50, 0.6);
+    border-radius: 4px;
+}

@@ -1,159 +1,193 @@
 from flask import Blueprint, request, jsonify
-from model import get_db
 from werkzeug.security import generate_password_hash, check_password_hash
-import jwt
-import datetime
-
-crop_routes = Blueprint("crop_routes", __name__)
-auth_routes = Blueprint("auth_routes", __name__)
-
-SECRET = "MYSECRET"
+from datetime import datetime, timedelta
+import uuid
+from model import get_db
 
 # -----------------------------
-# AUTH: REGISTER
+# Blueprints
 # -----------------------------
-@auth_routes.route("/api/register", methods=["POST"])
+auth_routes = Blueprint("auth_routes", __name__, url_prefix="/api")
+crop_routes = Blueprint("crop_routes", __name__, url_prefix="/api")
+
+# -----------------------------
+# Utility Functions
+# -----------------------------
+def validate_date(date_string):
+    try:
+        datetime.strptime(date_string, "%Y-%m-%d")
+        return True
+    except ValueError:
+        return False
+
+# -----------------------------
+# AUTH ROUTES
+# -----------------------------
+@auth_routes.route("/register", methods=["POST"])
 def register():
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"success": False, "message": "JSON required"}), 400
-
+    data = request.get_json() or {}
     email = data.get("email")
+    username = data.get("username")
     password = data.get("password")
 
-    if not email or not password:
-        return jsonify({"success": False, "message": "Email + password required"}), 400
+    if not all([email, username, password]):
+        return jsonify({"success": False, "message": "All fields are required"}), 400
 
     conn = get_db()
-    cur = conn.cursor()
+    cursor = conn.cursor()
 
-    exists = cur.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-    if exists:
-        return jsonify({"success": False, "message": "User already exists"}), 400
+    # Check if email exists
+    if cursor.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone():
+        conn.close()
+        return jsonify({"success": False, "message": "Email already exists"}), 400
 
-    hashed_pw = generate_password_hash(password)
-    cur.execute("INSERT INTO users (email, password) VALUES (?, ?)", (email, hashed_pw))
+    hashed_password = generate_password_hash(password)
+    cursor.execute(
+        "INSERT INTO users (email, username, password) VALUES (?, ?, ?)",
+        (email, username, hashed_password)
+    )
     conn.commit()
+    user_id = cursor.lastrowid
     conn.close()
 
-    return jsonify({"success": True, "message": "Registered successfully"}), 201
+    return jsonify({"success": True, "userId": user_id}), 201
 
-
-# -----------------------------
-# AUTH: LOGIN
-# -----------------------------
-@auth_routes.route("/api/login", methods=["POST"])
+@auth_routes.route("/login", methods=["POST"])
 def login():
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"success": False, "message": "JSON required"}), 400
-
+    data = request.get_json() or {}
     email = data.get("email")
     password = data.get("password")
 
-    conn = get_db()
-    cur = conn.cursor()
+    if not all([email, password]):
+        return jsonify({"success": False, "message": "Email and password are required"}), 400
 
-    user = cur.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+    conn = get_db()
+    user = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
     conn.close()
 
     if not user or not check_password_hash(user["password"], password):
-        return jsonify({"success": False, "message": "Invalid credentials"}), 401
+        return jsonify({"success": False, "message": "Invalid credentials"}), 400
 
-    token = jwt.encode(
-        {"email": email, "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=2)},
-        SECRET,
-        algorithm="HS256"
+    # Return user ID as token
+    return jsonify({"success": True, "userId": user["id"]}), 200
+
+@auth_routes.route("/reset-password", methods=["POST"])
+def request_password_reset():
+    data = request.get_json() or {}
+    email = data.get("email")
+
+    conn = get_db()
+    user = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+    if not user:
+        conn.close()
+        return jsonify({"success": False, "message": "Email not found"}), 404
+
+    token = str(uuid.uuid4())
+    expiry = (datetime.utcnow() + timedelta(hours=1)).isoformat()
+    conn.execute(
+        "INSERT INTO reset_tokens (user_id, token, expiry) VALUES (?, ?, ?)",
+        (user["id"], token, expiry)
     )
+    conn.commit()
+    conn.close()
 
     return jsonify({"success": True, "token": token}), 200
 
+@auth_routes.route("/reset-password/<token>", methods=["POST"])
+def reset_password(token):
+    data = request.get_json() or {}
+    new_password = data.get("password")
+
+    conn = get_db()
+    token_row = conn.execute("SELECT * FROM reset_tokens WHERE token=?", (token,)).fetchone()
+    if not token_row:
+        conn.close()
+        return jsonify({"success": False, "message": "Invalid token"}), 400
+
+    if datetime.utcnow() > datetime.fromisoformat(token_row["expiry"]):
+        conn.close()
+        return jsonify({"success": False, "message": "Token expired"}), 400
+
+    hashed_password = generate_password_hash(new_password)
+    conn.execute("UPDATE users SET password=? WHERE id=?", (hashed_password, token_row["user_id"]))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"success": True, "message": "Password reset successful"}), 200
 
 # -----------------------------
-# 1. ADD CROP
+# CROP ROUTES
 # -----------------------------
-@crop_routes.route("/crops", methods=["POST"])
-def add_crop():
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"error": "JSON required"}), 400
-
+@crop_routes.route("/crop/<int:user_id>", methods=["POST"])
+def add_crop(user_id):
+    data = request.get_json() or {}
     name = data.get("name")
     area = data.get("area")
     planting_date = data.get("planting_date")
 
-    if not name or area is None or not planting_date:
-        return jsonify({"error": "Missing fields"}), 400
+    # Validation
+    if not name or not isinstance(name, str) or name.strip() == "":
+        return jsonify({"error": "Crop name must be a non-empty string."}), 400
 
-    if float(area) <= 0:
-        return jsonify({"error": "Area must be positive"}), 400
+    try:
+        area = float(area)
+        if area <= 0:
+            return jsonify({"error": "Area must be a positive number."}), 400
+    except:
+        return jsonify({"error": "Area must be a number."}), 400
+
+    if not planting_date or not validate_date(planting_date):
+        return jsonify({"error": "Invalid or missing planting date."}), 400
 
     conn = get_db()
-    cur = conn.cursor()
-
-    cur.execute(
-        "INSERT INTO crops (name, area, planting_date) VALUES (?, ?, ?)",
-        (name, area, planting_date)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO crops (user_id, name, area, planting_date) VALUES (?, ?, ?, ?)",
+        (user_id, name.strip(), area, planting_date)
     )
     conn.commit()
-
-    new_id = cur.lastrowid
     conn.close()
 
-    return jsonify({
-        "id": new_id,
-        "name": name,
-        "area": area,
-        "planting_date": planting_date
-    }), 201
+    return jsonify({"message": "Crop added successfully!"}), 201
 
-
-# -----------------------------
-# 2. GET CROPS
-# -----------------------------
-@crop_routes.route("/crops", methods=["GET"])
-def get_crops():
+@crop_routes.route("/crop/<int:user_id>", methods=["GET"])
+def get_crops(user_id):
     conn = get_db()
-    rows = conn.cursor().execute("SELECT * FROM crops").fetchall()
+    crops = conn.execute("SELECT * FROM crops WHERE user_id=?", (user_id,)).fetchall()
     conn.close()
-
-    return jsonify([dict(row) for row in rows]), 200
-
+    return jsonify([dict(c) for c in crops]), 200
 
 # -----------------------------
-# 3. RECORD HARVEST
+# HARVEST ROUTES
 # -----------------------------
-@crop_routes.route("/crops/<int:crop_id>/harvest", methods=["PUT"])
-def record_harvest(crop_id):
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"error": "JSON required"}), 400
-
+@crop_routes.route("/harvest/<int:crop_id>/<int:user_id>", methods=["POST"])
+def add_harvest(crop_id, user_id):
+    data = request.get_json() or {}
     date = data.get("date")
-    yield_amount = data.get("yieldAmount")
+    yield_amount = data.get("yieldAmount") or data.get("yield_amount")
 
-    if not date or yield_amount is None:
-        return jsonify({"error": "Missing fields"}), 400
+    if not date or not yield_amount:
+        return jsonify({"error": "All fields are required"}), 400
+    try:
+        yield_amount = float(yield_amount)
+        if yield_amount <= 0:
+            return jsonify({"error": "Yield must be a positive number."}), 400
+    except:
+        return jsonify({"error": "Yield must be a number."}), 400
 
-    if float(yield_amount) < 0:
-        return jsonify({"error": "Yield amount must be positive"}), 400
+    if not validate_date(date):
+        return jsonify({"error": "Invalid date format"}), 400
 
     conn = get_db()
-    cur = conn.cursor()
+    crop = conn.execute("SELECT * FROM crops WHERE id=? AND user_id=?", (crop_id, user_id)).fetchone()
+    if not crop:
+        conn.close()
+        return jsonify({"error": "Unauthorized or invalid crop"}), 403
 
-    crop_exists = cur.execute("SELECT id FROM crops WHERE id = ?", (crop_id,)).fetchone()
-    if not crop_exists:
-        return jsonify({"error": "Crop not found"}), 404
-
-    cur.execute(
+    conn.execute(
         "INSERT INTO harvests (crop_id, date, yield_amount) VALUES (?, ?, ?)",
         (crop_id, date, yield_amount)
     )
-
     conn.commit()
     conn.close()
 

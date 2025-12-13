@@ -1,0 +1,96 @@
+/* Crop.css */
+
+/* Page background */
+.crop-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: #f1f8f4;
+    font-family: Arial, sans-serif;
+}
+
+/* Card container */
+.crop-card {
+    background: white;
+    padding: 30px 40px;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    width: 400px;
+    max-width: 90%;
+}
+
+/* Heading */
+.crop-card h2 {
+    color: #2e7d32;
+    margin-bottom: 5px;
+    text-align: center;
+}
+
+.crop-subtitle {
+    font-size: 14px;
+    color: #555;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Input groups */
+.input-group {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+.input-group label {
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+.input-group input {
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.input-group input:focus {
+    border-color: #2e7d32;
+    box-shadow: 0 0 5px rgba(46, 125, 50, 0.4);
+}
+
+/* Save button */
+.save-btn {
+    width: 100%;
+    padding: 12px;
+    background: #2e7d32;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: all 0.3s ease;
+}
+
+.save-btn:hover {
+    background: #1b5e20;
+}
+
+/* Responsive for smaller screens */
+@media (max-width: 450px) {
+    .crop-card {
+        padding: 20px;
+        width: 90%;
+    }
+
+    .input-group input {
+        font-size: 13px;
+    }
+
+    .save-btn {
+        font-size: 14px;
+    }
+}

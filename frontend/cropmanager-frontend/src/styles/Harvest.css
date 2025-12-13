@@ -1,0 +1,76 @@
+/* ---------------------------
+   Harvest Page Styles
+---------------------------- */
+
+.harvest-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: #f1f8f4; /* Soft background for readability */
+}
+
+.harvest-card {
+    background: #ffffff;
+    padding: 30px 40px;
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+    width: 400px;
+    text-align: center;
+}
+
+.harvest-card h2 {
+    color: #2e7d32;
+    margin-bottom: 25px;
+    font-size: 28px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.input-group label {
+    font-weight: 500;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.input-group input {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: #2e7d32;
+    box-shadow: 0 0 5px rgba(46, 125, 50, 0.5);
+}
+
+.save-btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    background: #2e7d32;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.save-btn:hover {
+    background: #1b5e20;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 480px) {
+    .harvest-card {
+        width: 90%;
+        padding: 20px;
+    }
+}

@@ -1,243 +1,152 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import "../styles/Auth.css";
 
 export default function AuthPage() {
-    const [isLogin, setIsLogin] = useState(true);
+    const [mode, setMode] = useState("login"); // login | register | reset
     const [captcha, setCaptcha] = useState("");
-    const [form, setForm] = useState({ email: "", username: "", password: "", captchaInput: "" });
+    const [form, setForm] = useState({
+        email: "",
+        username: "",
+        password: "",
+        captchaInput: "",
+    });
 
     const navigate = useNavigate();
 
     useEffect(() => {
-        generateCaptcha();
-    }, []);
+        if (mode === "register") generateCaptcha();
+    }, [mode]);
 
     const generateCaptcha = () => {
         const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         let text = "";
-        for (let i = 0; i < 6; i++) {
-            text += chars[Math.floor(Math.random() * chars.length)];
-        }
+        for (let i = 0; i < 6; i++) text += chars[Math.floor(Math.random() * chars.length)];
         setCaptcha(text);
     };
 
-    // HANDLE INPUT CHANGE
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
     };
 
-    // ======================================
-    // 🔥 LOGIN + REGISTER LOGIC FIXED HERE
-    // ======================================
     const handleSubmit = async () => {
-        if (!form.email || !form.password) {
-            alert("Please fill all fields!");
-            return;
+        if (!form.email || (mode !== "reset" && !form.password)) {
+            return alert("Please fill all fields!");
         }
 
-        // REGISTER CAPTCHA CHECK
-        if (!isLogin && form.captchaInput !== captcha) {
-            alert("CAPTCHA incorrect!");
+        if (mode === "register" && form.captchaInput !== captcha) {
+            alert("Incorrect CAPTCHA!");
             generateCaptcha();
             return;
         }
 
-        const endpoint = isLogin ? "/api/login" : "/api/register";
+        const endpoint =
+            mode === "login" ? "/api/login" :
+            mode === "register" ? "/api/register" :
+            "/api/reset-password";
 
-        const res = await fetch(`http://127.0.0.1:5000${endpoint}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                email: form.email,
-                password: form.password,
-                username: form.username,
-            }),
-        });
+        const body = mode === "reset" ? { email: form.email } : form;
 
-        const data = await res.json();
+        try {
+            const res = await fetch(`http://127.0.0.1:5000${endpoint}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
 
-        if (!data.success) {
-            alert(data.message || "Something went wrong");
-            return;
-        }
+            const data = await res.json();
 
-        // LOGIN SUCCESS — SAVE TOKEN & NAVIGATE
-        if (isLogin) {
-            localStorage.setItem("user", JSON.stringify({ token: data.token }));
-            navigate("/dashboard"); // <--- WORKS NOW
-        } else {
-            alert("Registered successfully! Please login.");
-            setIsLogin(true);
+            if (!data.success) return alert(data.message);
+
+            if (mode === "login") {
+                localStorage.setItem("user", JSON.stringify({ token: data.userId }));
+                navigate("/dashboard");
+            } else if (mode === "register") {
+                alert("Registered successfully! Please login.");
+                setMode("login");
+                setForm({ email: "", username: "", password: "", captchaInput: "" });
+            } else {
+                alert("Password reset link sent!");
+                setMode("login");
+            }
+        } catch (error) {
+            alert("Server error: " + error.message);
         }
     };
 
     return (
-        <div style={styles.container}>
-            <div style={styles.card}>
-                
-                <h2 style={styles.title}>{isLogin ? "Login" : "Register"}</h2>
-                <p style={styles.subtitle}>CropManager System</p>
+        <div className="auth-container">
+            <div className="auth-card">
+                <h2 className="auth-title">
+                    {mode === "login" ? "Login" : mode === "register" ? "Register" : "Reset Password"}
+                </h2>
+                <p className="auth-subtitle">CropManager System</p>
 
                 <input
                     name="email"
                     type="email"
                     placeholder="Email"
-                    style={styles.input}
+                    className="auth-input"
                     value={form.email}
                     onChange={handleChange}
                 />
 
-                {!isLogin && (
+                {mode === "register" && (
                     <input
                         name="username"
                         type="text"
                         placeholder="Username"
-                        style={styles.input}
+                        className="auth-input"
                         value={form.username}
                         onChange={handleChange}
                     />
                 )}
 
-                <input
-                    name="password"
-                    type="password"
-                    placeholder="Password"
-                    style={styles.input}
-                    value={form.password}
-                    onChange={handleChange}
-                />
+                {mode !== "reset" && (
+                    <input
+                        name="password"
+                        type="password"
+                        placeholder="Password"
+                        className="auth-input"
+                        value={form.password}
+                        onChange={handleChange}
+                    />
+                )}
 
-                {!isLogin && (
+                {mode === "register" && (
                     <>
-                        <div style={styles.captchaBox}>
-                            <span style={styles.captchaText}>{captcha}</span>
-                            <button style={styles.refreshButton} onClick={generateCaptcha}>↻</button>
+                        <div className="captcha-box">
+                            <span className="captcha-text">{captcha}</span>
+                            <button type="button" className="captcha-refresh" onClick={generateCaptcha}>↻</button>
                         </div>
-
                         <input
                             name="captchaInput"
                             type="text"
                             placeholder="Enter CAPTCHA"
-                            style={styles.input}
+                            className="auth-input"
                             value={form.captchaInput}
                             onChange={handleChange}
                         />
                     </>
                 )}
 
-                <button style={styles.greenButton} onClick={handleSubmit}>
-                    {isLogin ? "Login" : "Register"}
+                {mode === "login" && (
+                    <p className="forgot-password" onClick={() => setMode("reset")}>
+                        Forgot Password?
+                    </p>
+                )}
+
+                <button className="auth-button" onClick={handleSubmit}>
+                    {mode === "login" ? "Login" : mode === "register" ? "Register" : "Reset Password"}
                 </button>
 
-                <p style={styles.toggleText}>
-                    {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-                    <span style={styles.toggleLink} onClick={() => setIsLogin(!isLogin)}>
-                        {isLogin ? "Register" : "Login"}
+                <p className="toggle-text">
+                    {mode === "login" ? "Don't have an account?" : mode === "register" ? "Already have an account?" : "Remembered your password?"}
+                    <span className="toggle-link" onClick={() => setMode(mode === "login" ? "register" : "login")}>
+                        {mode === "login" ? " Register" : mode === "register" ? " Login" : " Login"}
                     </span>
                 </p>
-
             </div>
         </div>
     );
 }
-
-/* STYLES */
-const styles = {
-    container: {
-        width: "100vw",
-        height: "100vh",
-        background: "#e9ffe8",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        fontFamily: "Arial",
-    },
-
-    card: {
-        width: "100%",
-        maxWidth: "400px",
-        padding: "35px 30px",
-        background: "#ffffff",
-        borderRadius: "14px",
-        boxShadow: "0 6px 20px rgba(0,0,0,0.15)",
-        textAlign: "center",
-    },
-
-    title: {
-        margin: 0,
-        fontSize: "28px",
-        fontWeight: "bold",
-        color: "#2e7d32",
-    },
-
-    subtitle: {
-        marginTop: "8px",
-        marginBottom: "20px",
-        fontSize: "15px",
-        color: "#555",
-    },
-
-    input: {
-        width: "100%",
-        padding: "13px",
-        marginTop: "16px",
-        borderRadius: "8px",
-        border: "1px solid #c9c9c9",
-        fontSize: "15px",
-        outline: "none",
-    },
-
-    greenButton: {
-        width: "100%",
-        padding: "14px",
-        marginTop: "22px",
-        backgroundColor: "#2e7d32",
-        color: "white",
-        border: "none",
-        borderRadius: "8px",
-        fontSize: "17px",
-        cursor: "pointer",
-        fontWeight: "bold",
-    },
-
-    toggleText: {
-        marginTop: "18px",
-        fontSize: "14px",
-    },
-
-    toggleLink: {
-        color: "#2e7d32",
-        cursor: "pointer",
-        fontWeight: "bold",
-    },
-
-    captchaBox: {
-        marginTop: "18px",
-        width: "100%",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-    },
-
-    captchaText: {
-        fontSize: "24px",
-        fontStyle: "italic",
-        letterSpacing: "4px",
-        color: "#000",
-        background: "#e1f5e0",
-        padding: "8px 18px",
-        borderRadius: "8px",
-        textShadow: "1px 1px 1px #777",
-        userSelect: "none",
-    },
-
-    refreshButton: {
-        padding: "10px 14px",
-        cursor: "pointer",
-        backgroundColor: "#2e7d32",
-        color: "white",
-        border: "none",
-        borderRadius: "8px",
-        fontSize: "18px",
-    },
-};
