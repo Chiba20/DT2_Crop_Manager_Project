@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
 from crop_tracker.model import init_db
-from crop_tracker.routes import auth_routes, crop_routes
+from crop_tracker.crops import auth_routes, crop_routes
 from crop_tracker.harvest import harvest_routes  # Import harvest routes
 
 app = Flask(__name__)

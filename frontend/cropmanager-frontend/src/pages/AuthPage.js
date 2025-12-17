@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import "../styles/Auth.css";
 
 export default function AuthPage() {
-  const [mode, setMode] = useState("login");  // login | register | reset
+  const [mode, setMode] = useState("login"); // login | register | reset
   const [captcha, setCaptcha] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [form, setForm] = useState({
     email: "",
     username: "",
@@ -60,7 +61,7 @@ export default function AuthPage() {
 
       if (mode === "login") {
         localStorage.setItem("user", JSON.stringify({ token: data.userId }));
-        navigate("/dashboard");  // Navigate to dashboard after login
+        navigate("/dashboard");
       } else if (mode === "register") {
         alert("Registered successfully! Please login.");
         setMode("login");
@@ -76,76 +77,119 @@ export default function AuthPage() {
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
-        <h2 className="auth-title">
-          {mode === "login" ? "Login" : mode === "register" ? "Register" : "Reset Password"}
-        </h2>
-        <p className="auth-subtitle">CropManager System</p>
+      <div className="authWrap">
+        <div className="authCard">
 
-        <input
-          name="email"
-          type="email"
-          placeholder="Email"
-          className="auth-input"
-          value={form.email}
-          onChange={handleChange}
-        />
+          {/* Brand */}
+          <div className="authBrand">
+            <span className="plantIcon">🌱</span>
+            <span className="brandText">CropManager</span>
+          </div>
 
-        {mode === "register" && (
-          <input
-            name="username"
-            type="text"
-            placeholder="Username"
-            className="auth-input"
-            value={form.username}
-            onChange={handleChange}
-          />
-        )}
+          {/* Title */}
+          <h2 className="auth-title">
+            {mode === "login"
+              ? "Login"
+              : mode === "register"
+              ? "Create Account"
+              : "Reset Password"}
+          </h2>
 
-        {mode !== "reset" && (
-          <input
-            name="password"
-            type="password"
-            placeholder="Password"
-            className="auth-input"
-            value={form.password}
-            onChange={handleChange}
-          />
-        )}
-
-        {mode === "register" && (
-          <>
-            <div className="captcha-box">
-              <span className="captcha-text">{captcha}</span>
-              <button type="button" className="captcha-refresh" onClick={generateCaptcha}>↻</button>
-            </div>
+          {/* Email */}
+          <div className="inputGroup">
             <input
-              name="captchaInput"
-              type="text"
-              placeholder="Enter CAPTCHA"
+              name="email"
+              type="email"
+              placeholder="Email"
               className="auth-input"
-              value={form.captchaInput}
+              value={form.email}
               onChange={handleChange}
             />
-          </>
-        )}
+          </div>
 
-        {mode === "login" && (
-          <p className="forgot-password" onClick={() => setMode("reset")}>
-            Forgot Password?
-          </p>
-        )}
+          {/* Username */}
+          {mode === "register" && (
+            <div className="inputGroup">
+              <input
+                name="username"
+                placeholder="Username"
+                className="auth-input"
+                value={form.username}
+                onChange={handleChange}
+              />
+            </div>
+          )}
 
-        <button className="auth-button" onClick={handleSubmit}>
-          {mode === "login" ? "Login" : mode === "register" ? "Register" : "Reset Password"}
-        </button>
+          {/* Password */}
+          {mode !== "reset" && (
+            <div className="inputGroup">
+              <input
+                name="password"
+                type={showPw ? "text" : "password"}
+                placeholder="Password"
+                className="auth-input"
+                value={form.password}
+                onChange={handleChange}
+              />
+              <button
+                type="button"
+                className="eyeBtn"
+                onClick={() => setShowPw((s) => !s)}
+              >
+                {showPw ? "🙈" : "👁️"}
+              </button>
+            </div>
+          )}
 
-        <p className="toggle-text">
-          {mode === "login" ? "Don't have an account?" : mode === "register" ? "Already have an account?" : "Remembered your password?"}
-          <span className="toggle-link" onClick={() => setMode(mode === "login" ? "register" : "login")}>
-            {mode === "login" ? " Register" : mode === "register" ? " Login" : " Login"}
-          </span>
-        </p>
+          {/* Forgot Password */}
+          {mode === "login" && (
+            <div className="forgot-password" onClick={() => setMode("reset")}>
+              Forgot Password?
+            </div>
+          )}
+
+          {/* CAPTCHA */}
+          {mode === "register" && (
+            <>
+              <div className="captcha-box">
+                <span className="captcha-text">{captcha}</span>
+                <button onClick={generateCaptcha}>↻</button>
+              </div>
+              <div className="inputGroup">
+                <input
+                  name="captchaInput"
+                  placeholder="Enter CAPTCHA"
+                  className="auth-input"
+                  value={form.captchaInput}
+                  onChange={handleChange}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Submit */}
+          <button className="auth-button" onClick={handleSubmit}>
+            {mode === "login"
+              ? "Login"
+              : mode === "register"
+              ? "Register"
+              : "Reset Password"}
+          </button>
+
+          {/* Mode toggle */}
+          <div className="toggle-text">
+            {mode === "login" ? "Don't have an account?" : mode === "register" ? "Already have an account?" : "Remembered your password?"}
+            <span
+              className="toggle-link"
+              onClick={() =>
+                setMode(mode === "login" ? "register" : "login")
+              }
+            >
+              {mode === "login" ? " Register" : " Login"}
+            </span>
+          </div>
+
+        </div>
       </div>
     </div>
   );
