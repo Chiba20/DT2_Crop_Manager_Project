@@ -18,6 +18,7 @@ app.register_blueprint(auth_routes, url_prefix='/api')
 app.register_blueprint(crop_routes, url_prefix='/api')
 app.register_blueprint(harvest_routes, url_prefix='/api')  # Register harvest routes
 
+
 # Root endpoint
 @app.route("/")
 def index():
