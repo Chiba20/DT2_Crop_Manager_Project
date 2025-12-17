@@ -2,7 +2,8 @@ from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import uuid
-from model import get_db
+from crop_tracker.model import get_db
+
 
 # -----------------------------
 # Blueprints

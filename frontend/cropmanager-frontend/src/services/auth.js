@@ -8,7 +8,7 @@ export async function register(email, password) {
     body: JSON.stringify({ email, password }),
   });
   return res.json();
-}
+
 
 export async function login(email, password) {
   const res = await fetch(`${BACKEND}/api/login`, {

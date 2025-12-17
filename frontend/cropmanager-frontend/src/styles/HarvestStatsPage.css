@@ -1,0 +1,101 @@
+/* Main Container Styling */
+.harvest-stats {
+  padding: 40px;
+  background-color: #f5f7fa;
+  margin-top: 30px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.harvest-stats h1 {
+  font-size: 32px;
+  font-weight: bold;
+  color: #2d3e50;
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+/* Total Harvest Summary Table */
+.total-harvest-summary {
+  background-color: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+  padding: 20px;
+  width: 100%;
+  max-width: 800px;
+  margin-bottom: 30px;
+}
+
+.total-harvest-summary h3 {
+  font-size: 24px;
+  font-weight: bold;
+  color: #2d3e50;
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+.total-harvest-summary table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.total-harvest-summary th,
+.total-harvest-summary td {
+  padding: 12px;
+  text-align: center;
+  border: 1px solid #ddd;
+  font-size: 16px;
+}
+
+.total-harvest-summary th {
+  background-color: #4caf50;
+  color: white;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.total-harvest-summary tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+
+.total-harvest-summary tr:hover {
+  background-color: #e0f7e1;
+}
+
+/* Chart Containers */
+.charts-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.chart {
+  margin-bottom: 40px;
+  width: 100%;
+  max-width: 800px;
+}
+
+.chart h3 {
+  font-size: 24px;
+  font-weight: bold;
+  color: #2d3e50;
+  margin-bottom: 15px;
+}
+
+/* Responsive Design */
+@media screen and (max-width: 768px) {
+  .total-harvest-summary table {
+    font-size: 14px;
+  }
+
+  .total-harvest-summary th,
+  .total-harvest-summary td {
+    padding: 8px;
+  }
+
+  .chart h3 {
+    font-size: 20px;
+  }
+}
