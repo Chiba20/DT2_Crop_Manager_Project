@@ -118,3 +118,25 @@
     width: 100%;
   }
 }
+
+.prediction-box {
+  margin-top: 10px;
+  padding: 10px;
+  background: #eef6f0;
+  border-left: 4px solid #2f9f65;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.prediction-tip {
+  font-style: italic;
+  color: #444;
+}
+
+.prediction.loading {
+  color: #777;
+}
+
+.prediction.error {
+  color: #b00020;
+}

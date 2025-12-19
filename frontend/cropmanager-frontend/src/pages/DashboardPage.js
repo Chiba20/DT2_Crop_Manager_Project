@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCrops, deleteCrop, updateCrop } from "../services/api";
 import "../styles/Dashboard.css";
+import YieldPredictor from "./YieldPredictor";
+
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -104,9 +106,11 @@ export default function DashboardPage() {
                 <th>Name</th>
                 <th>Area (acres)</th>
                 <th>Planting Date</th>
+                <th>Prediction</th>   {/* MODULE 3 */}
                 <th>Actions</th>
               </tr>
             </thead>
+
             <tbody>
               {crops.map(crop => (
                 <tr key={crop.id}>
@@ -121,24 +125,39 @@ export default function DashboardPage() {
                     ) : crop.area}
                   </td>
                   <td>
-                    {editingId === crop.id ? (
-                      <input type="date" value={editForm.planting_date} onChange={e => setEditForm({ ...editForm, planting_date: e.target.value })} />
-                    ) : crop.planting_date}
-                  </td>
-                  <td style={{ display: "flex", gap: "5px" }}>
-                    {editingId === crop.id ? (
-                      <>
-                        <button onClick={() => handleSaveEdit(crop.id)}>Save</button>
-                        <button onClick={handleCancelEdit}>Cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <button onClick={() => navigate(`/harvest/${crop.id}`)}>Record Harvest</button>
-                        <button onClick={() => handleEditClick(crop)}>Edit</button>
-                        <button onClick={() => handleDelete(crop.id)}>Delete</button>
-                      </>
-                    )}
-                  </td>
+                      {editingId === crop.id ? (
+                        <input
+                          type="date"
+                          value={editForm.planting_date}
+                          onChange={e =>
+                            setEditForm({ ...editForm, planting_date: e.target.value })
+                          }
+                        />
+                      ) : crop.planting_date}
+                    </td>
+
+                    {/* 🔽 MODULE 3 PREDICTION COLUMN 🔽 */}
+                    <td>
+                      <YieldPredictor cropId={crop.id} />
+                    </td>
+
+                    <td style={{ display: "flex", gap: "5px" }}>
+                      {editingId === crop.id ? (
+                        <>
+                          <button onClick={() => handleSaveEdit(crop.id)}>Save</button>
+                          <button onClick={handleCancelEdit}>Cancel</button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => navigate(`/harvest/${crop.id}`)}>
+                            Record Harvest
+                          </button>
+                          <button onClick={() => handleEditClick(crop)}>Edit</button>
+                          <button onClick={() => handleDelete(crop.id)}>Delete</button>
+                        </>
+                      )}
+                   </td>
+
                 </tr>
               ))}
             </tbody>
