@@ -12,6 +12,9 @@ app.config["SECRET_KEY"] = "MYSECRET_KEY"  # Use for sessions if needed
 # Enable CORS for frontend
 CORS(app)  # Allow requests from React frontend
 
+# Enable CORS for frontend with credentials
+CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
+
 # Initialize database
 init_db()
 

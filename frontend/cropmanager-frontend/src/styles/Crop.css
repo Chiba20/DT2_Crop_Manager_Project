@@ -1,4 +1,6 @@
-/* Crop.css */
+/* ===========================
+   Crop Page Styles
+=========================== */
 
 /* Page background */
 .crop-page {
@@ -6,84 +8,122 @@
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: #f1f8f4;
+
+    background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
     font-family: Arial, sans-serif;
 }
 
 /* Card container */
 .crop-card {
-    background: white;
+    background: #ffffff;
     padding: 30px 40px;
-    border-radius: 12px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 14px;
     width: 400px;
     max-width: 90%;
+
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+    text-align: center;
 }
 
 /* Heading */
 .crop-card h2 {
     color: #2e7d32;
-    margin-bottom: 5px;
-    text-align: center;
+    margin-bottom: 6px;
+    font-size: 26px;
 }
 
+/* Subtitle */
 .crop-subtitle {
     font-size: 14px;
     color: #555;
-    text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 22px;
 }
 
-/* Input groups */
+/* Input group wrapper */
 .input-group {
-    margin-bottom: 15px;
+    margin-bottom: 16px;
     display: flex;
     flex-direction: column;
+    text-align: left;
 }
 
+/* Labels */
 .input-group label {
-    margin-bottom: 5px;
+    margin-bottom: 6px;
     font-weight: bold;
-    color: #333;
+    color: #2e7d32;
+    font-size: 14px;
 }
 
+/* ===========================
+   INPUT FIELDS (GRADIENT)
+=========================== */
 .input-group input {
-    padding: 10px;
-    border-radius: 6px;
-    border: 1px solid #ccc;
+    padding: 12px;
+    border-radius: 10px;
+
+    /* SAME gradient as background */
+    background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
+
+    border: 1px solid #c8e6c9;
     font-size: 14px;
     outline: none;
+    color: #2e7d32;
+
     transition: all 0.3s ease;
 }
 
-.input-group input:focus {
-    border-color: #2e7d32;
-    box-shadow: 0 0 5px rgba(46, 125, 50, 0.4);
+/* Placeholder */
+.input-group input::placeholder {
+    color: #6b8e6e;
 }
 
-/* Save button */
+/* Focus effect */
+.input-group input:focus {
+    background: linear-gradient(135deg, #dcedc8, #e8f5e9);
+    border-color: #2e7d32;
+    box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.15);
+}
+
+/* ===========================
+   SAVE BUTTON
+=========================== */
 .save-btn {
     width: 100%;
-    padding: 12px;
-    background: #2e7d32;
+    padding: 13px;
+    margin-top: 14px;
+
+    background: linear-gradient(135deg, #2e7d32, #1b5e20);
     color: white;
+
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 16px;
+    font-weight: bold;
+
     cursor: pointer;
-    margin-top: 10px;
-    transition: all 0.3s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* Hover */
 .save-btn:hover {
-    background: #1b5e20;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 15px rgba(46, 125, 50, 0.35);
 }
 
-/* Responsive for smaller screens */
+/* Active */
+.save-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 3px 8px rgba(46, 125, 50, 0.25);
+}
+
+/* ===========================
+   RESPONSIVE (MOBILE)
+=========================== */
 @media (max-width: 450px) {
     .crop-card {
-        padding: 20px;
-        width: 90%;
+        padding: 22px;
+        width: 92%;
     }
 
     .input-group input {
@@ -91,6 +131,6 @@
     }
 
     .save-btn {
-        font-size: 14px;
+        font-size: 15px;
     }
 }

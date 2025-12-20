@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { getCrops, deleteCrop, updateCrop } from "../services/api";
+import { getCrops, updateCrop, deleteCrop } from "../services/api";
 import "../styles/Dashboard.css";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
 
   const [crops, setCrops] = useState([]);
+  const [isCropsAdded, setIsCropsAdded] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({
     name: "",
@@ -26,22 +27,28 @@ export default function DashboardPage() {
     navigate("/");
   };
 
+
   const fetchCrops = useCallback(async () => {
     if (!userId) return;
     try {
       const data = await getCrops(userId, page, limit);
       setCrops(data.data || []);
       setTotal(data.total || 0);
+      setIsCropsAdded(data.data?.length > 0);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching crops:", err);
       setCrops([]);
       setTotal(0);
+      setIsCropsAdded(false);
     }
   }, [userId, page]);
 
   useEffect(() => {
-    if (!userId) navigate("/");
-    else fetchCrops();
+    if (!userId) {
+      navigate("/");
+      return;
+    }
+    fetchCrops();
   }, [userId, page, fetchCrops, navigate]);
 
   const handleDelete = async (cropId) => {
@@ -67,6 +74,7 @@ export default function DashboardPage() {
   const handleSaveEdit = async (cropId) => {
     const areaNum = parseFloat(editForm.area);
 
+    // Validation
     if (!editForm.name.trim()) return alert("Name cannot be empty");
     if (!isNaN(editForm.name)) return alert("Name must be text");
     if (!areaNum || areaNum <= 0) return alert("Area must be positive");
@@ -93,6 +101,24 @@ export default function DashboardPage() {
         </button>
       </div>
 
+
+
+      {/* Action Buttons */}
+      <div className="dashboard-actions">
+        <button className="add-crop-btn" onClick={() => navigate("/crop")}>
+            ➕ Add New Crop
+        </button>
+        {isCropsAdded && (
+          <button
+             className="view-harvest-btn"
+             onClick={() => navigate("/harvest-stats")}
+          >
+             📊 View Harvest Stats
+          </button>
+        )}
+      </div>
+
+      {/* Crops Table */}
       <div className="crops-table-container">
         {crops.length === 0 ? (
           <p>No crops added yet.</p>
@@ -108,7 +134,7 @@ export default function DashboardPage() {
             </thead>
 
             <tbody>
-              {crops.map((crop) => (
+              {Crops.map((crop) => (
                 <tr key={crop.id}>
                   <td>
                     {editingId === crop.id ? (
@@ -182,6 +208,15 @@ export default function DashboardPage() {
               ))}
             </tbody>
           </table>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div style={{ marginTop: "20px", display: "flex", justifyContent: "center", gap: "10px" }}>
+            <button onClick={() => setPage((p) => Math.max(p - 1, 1))} disabled={page === 1}>Prev</button>
+            <span>Page {page} of {totalPages}</span>
+            <button onClick={() => setPage((p) => (p < totalPages ? p + 1 : p))} disabled={page >= totalPages}>Next</button>
+          </div>
         )}
       </div>
     </div>
