@@ -6,8 +6,6 @@ from crop_tracker.harvest import harvest_routes  # Import harvest routes
 from crop_tracker.prediction import prediction_routes
 
 
-
-
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "MYSECRET_KEY"  # Use for sessions if needed
 
@@ -21,8 +19,7 @@ init_db()
 app.register_blueprint(auth_routes, url_prefix='/api')
 app.register_blueprint(crop_routes, url_prefix='/api')
 app.register_blueprint(harvest_routes, url_prefix='/api')  # Register harvest routes
-app.register_blueprint(prediction_routes) #Register prediction routes
-
+app.register_blueprint(prediction_routes)
 
 
 # Root endpoint
