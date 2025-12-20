@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, session
 from datetime import datetime
 from crop_tracker.model import get_db
 
-harvest_routes = Blueprint("harvest_routes", __name__)
+harvest_routes = Blueprint("harvest_routes", __name__, url_prefix="/api")
 
 # -------------------------------
 # Utility: validate date
@@ -16,82 +16,74 @@ def validate_date(date_string):
 
 
 # =====================================================
-# GET /harvests
-# Get all harvest records for logged-in user
+# GET /api/harvests
 # =====================================================
 @harvest_routes.route("/harvests", methods=["GET"])
 def get_harvests():
-    user_id = session.get("user_id")
+    user_id = request.args.get("user_id")
+
     if not user_id:
         return jsonify({"error": "User not logged in"}), 401
 
-    try:
-        conn = get_db()
-        harvests = conn.execute("""
-            SELECT harvests.id,
-                   crops.name AS crop_name,
-                   harvests.date,
-                   harvests.yield_amount
-            FROM harvests
-            JOIN crops ON harvests.crop_id = crops.id
-            WHERE crops.user_id = ?
-            ORDER BY harvests.date DESC
-        """, (user_id,)).fetchall()
-        conn.close()
 
-        return jsonify([dict(h) for h in harvests]), 200
+    conn = get_db()
+    harvests = conn.execute("""
+        SELECT harvests.id,
+               crops.name AS crop_name,
+               harvests.date,
+               harvests.yield_amount
+        FROM harvests
+        JOIN crops ON harvests.crop_id = crops.id
+        WHERE crops.user_id = ?
+        ORDER BY harvests.date DESC
+    """, (user_id,)).fetchall()
+    conn.close()
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify([dict(h) for h in harvests]), 200
 
 
 # =====================================================
-# GET /harvests/stats
-# Yield statistics by crop type + overall total
+# GET /api/harvests/stats
 # =====================================================
 @harvest_routes.route("/harvests/stats", methods=["GET"])
 def get_harvest_stats():
-    user_id = session.get("user_id")
+    user_id = request.args.get("user_id")
+
     if not user_id:
         return jsonify({"error": "User not logged in"}), 401
 
-    try:
-        conn = get_db()
-        stats = conn.execute("""
-            SELECT crops.name AS crop_name,
-                   SUM(harvests.yield_amount) AS total_yield,
-                   AVG(harvests.yield_amount) AS avg_yield,
-                   COUNT(harvests.id) AS harvest_count
-            FROM harvests
-            JOIN crops ON harvests.crop_id = crops.id
-            WHERE crops.user_id = ?
-            GROUP BY crops.name
-        """, (user_id,)).fetchall()
 
-        overall_total = sum(row["total_yield"] or 0 for row in stats)
+    conn = get_db()
+    stats = conn.execute("""
+        SELECT crops.name AS crop_name,
+               SUM(harvests.yield_amount) AS total_yield,
+               AVG(harvests.yield_amount) AS avg_yield,
+               COUNT(harvests.id) AS harvest_count
+        FROM harvests
+        JOIN crops ON harvests.crop_id = crops.id
+        WHERE crops.user_id = ?
+        GROUP BY crops.name
+    """, (user_id,)).fetchall()
 
-        conn.close()
+    overall_total = sum(row["total_yield"] or 0 for row in stats)
+    conn.close()
 
-        return jsonify({
-            "stats": [
-                {
-                    "crop_name": row["crop_name"],
-                    "total_yield": row["total_yield"] or 0,
-                    "avg_yield": row["avg_yield"] or 0,
-                    "harvest_count": row["harvest_count"]
-                }
-                for row in stats
-            ],
-            "overall_total_yield": overall_total
-        }), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({
+        "stats": [
+            {
+                "crop_name": row["crop_name"],
+                "total_yield": row["total_yield"] or 0,
+                "avg_yield": row["avg_yield"] or 0,
+                "harvest_count": row["harvest_count"]
+            }
+            for row in stats
+        ],
+        "overall_total_yield": overall_total
+    }), 200
 
 
 # =====================================================
-# POST /harvest/<crop_id>/<user_id>
-# Add a new harvest for an existing crop
+# POST /api/harvest/<crop_id>/<user_id>
 # =====================================================
 @harvest_routes.route("/harvest/<int:crop_id>/<int:user_id>", methods=["POST"])
 def add_harvest(crop_id, user_id):

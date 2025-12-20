@@ -18,15 +18,21 @@ export default function HarvestStatsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 5;
-
-  // Fetch statistics
   useEffect(() => {
     async function fetchStats() {
       try {
-        const data = await getHarvestStats(); // GET /harvests/stats
+        // ✅ GET USER FROM LOCAL STORAGE
+        const user = JSON.parse(localStorage.getItem("user"));
+
+        if (!user || !user.token) {
+          setError("User not logged in");
+          setLoading(false);
+          return;
+        }
+
+        // ✅ PASS USER ID TO API
+        const data = await getHarvestStats(user.token);
+
         setStats(data.stats || []);
         setOverallTotal(data.overall_total_yield || 0);
       } catch (err) {
@@ -35,25 +41,9 @@ export default function HarvestStatsPage() {
         setLoading(false);
       }
     }
+
     fetchStats();
   }, []);
-
-  // Reset page when stats change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [stats]);
-
-  // Pagination logic
-  const indexOfLastRow = currentPage * rowsPerPage;
-  const indexOfFirstRow = indexOfLastRow - rowsPerPage;
-  const currentRows = stats.slice(indexOfFirstRow, indexOfLastRow);
-  const totalPages = Math.ceil(stats.length / rowsPerPage);
-
-  // Chart data
-  const chartData = stats.map(stat => ({
-    crop: stat.crop_name,
-    totalYield: Number(stat.total_yield)
-  }));
 
   return (
     <div className="dashboard">
@@ -67,85 +57,35 @@ export default function HarvestStatsPage() {
       {error && <div className="status error">{error}</div>}
 
       {!loading && !error && (
-        <>
-          {/* TABLE */}
-          <div className="card">
-            <h2>📋 Harvest Summary</h2>
-            <table className="styled-table">
-              <thead>
+        <div className="card">
+          <h2>📋 Harvest Summary</h2>
+          <table className="styled-table">
+            <thead>
+              <tr>
+                <th>Crop</th>
+                <th>Total Yield (kg)</th>
+                <th>Harvest Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.length === 0 ? (
                 <tr>
-                  <th>Crop</th>
-                  <th>Total Yield (kg)</th>
-                  <th>Harvest Count</th>
+                  <td colSpan="3" style={{ textAlign: "center" }}>
+                    No records found
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {currentRows.length === 0 ? (
-                  <tr>
-                    <td colSpan="3" style={{ textAlign: "center" }}>
-                      No records found
-                    </td>
+              ) : (
+                stats.map(stat => (
+                  <tr key={stat.crop_name}>
+                    <td>{stat.crop_name}</td>
+                    <td>{stat.total_yield}</td>
+                    <td>{stat.harvest_count}</td>
                   </tr>
-                ) : (
-                  currentRows.map(stat => (
-                    <tr key={stat.crop_name}>
-                      <td>{stat.crop_name}</td>
-                      <td>{stat.total_yield}</td>
-                      <td>{stat.harvest_count}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-
-            {/* PAGINATION */}
-            {stats.length > rowsPerPage && (
-              <div className="pagination">
-                <button
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(prev => prev - 1)}
-                >
-                  ◀ Prev
-                </button>
-                <span>
-                  Page {currentPage} of {totalPages}
-                </span>
-                <button
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(prev => prev + 1)}
-                >
-                  Next ▶
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* BAR CHART */}
-          <div className="card">
-            <h2>📊 Total Yield by Crop</h2>
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="crop" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar
-                    dataKey="totalYield"
-                    fill="#2E7D32"
-                    barSize={40}
-                    name="Total Yield (kg)"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ textAlign: "center", padding: "50px 0" }}>
-                No chart data available
-              </div>
-            )}
-          </div>
-        </>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

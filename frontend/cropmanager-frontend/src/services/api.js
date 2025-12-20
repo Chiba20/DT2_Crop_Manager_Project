@@ -56,24 +56,26 @@ export async function recordHarvest(cropId, userId, payload) {
   return res.json();
 }
 
-export async function getHarvestStats() {
-  const res = await fetch(`${BACKEND}/api/harvests/stats`, {
-    method: "GET",
-    credentials: "include" // important if using session
-  });
+// ✅ FIXED: Harvest Stats MUST send userId
+export async function getHarvestStats(userId) {
+  const res = await fetch(
+    `http://127.0.0.1:5000/api/harvests/stats?user_id=${userId}`,
+    { method: "GET" }
+  );
 
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.error || "Failed to fetch harvest statistics");
   }
 
-  return res.json(); // { stats: [...], overall_total_yield: ... }
+  return res.json();
 }
 
-export async function getUserHarvests() {
-  const res = await fetch(`${BACKEND}/api/harvests`, {
+
+export async function getUserHarvests(userId) {
+  const res = await fetch(`${BACKEND}/api/harvests/${userId}`, {
     method: "GET",
-    credentials: "include"
+    headers: { "Content-Type": "application/json" }
   });
 
   if (!res.ok) {

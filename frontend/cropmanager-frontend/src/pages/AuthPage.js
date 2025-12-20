@@ -22,7 +22,8 @@ export default function AuthPage() {
   const generateCaptcha = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let text = "";
-    for (let i = 0; i < 6; i++) text += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < 6; i++)
+      text += chars[Math.floor(Math.random() * chars.length)];
     setCaptcha(text);
   };
 
@@ -42,9 +43,11 @@ export default function AuthPage() {
     }
 
     const endpoint =
-      mode === "login" ? "/api/login" :
-      mode === "register" ? "/api/register" :
-      "/api/reset-password";
+      mode === "login"
+        ? "/api/login"
+        : mode === "register"
+        ? "/api/register"
+        : "/api/reset-password";
 
     const body = mode === "reset" ? { email: form.email } : form;
 
@@ -60,12 +63,20 @@ export default function AuthPage() {
       if (!data.success) return alert(data.message);
 
       if (mode === "login") {
-        localStorage.setItem("user", JSON.stringify({ token: data.userId }));
+        localStorage.setItem(
+          "user",
+          JSON.stringify({ token: data.userId })
+        );
         navigate("/dashboard");
       } else if (mode === "register") {
         alert("Registered successfully! Please login.");
         setMode("login");
-        setForm({ email: "", username: "", password: "", captchaInput: "" });
+        setForm({
+          email: "",
+          username: "",
+          password: "",
+          captchaInput: "",
+        });
       } else {
         alert("Password reset link sent!");
         setMode("login");
@@ -79,7 +90,6 @@ export default function AuthPage() {
     <div className="auth-container">
       <div className="authWrap">
         <div className="authCard">
-
           {/* Brand */}
           <div className="authBrand">
             <span className="plantIcon">🌱</span>
@@ -143,7 +153,10 @@ export default function AuthPage() {
 
           {/* Forgot Password */}
           {mode === "login" && (
-            <div className="forgot-password" onClick={() => setMode("reset")}>
+            <div
+              className="forgot-password"
+              onClick={() => setMode("reset")}
+            >
               Forgot Password?
             </div>
           )}
@@ -178,7 +191,11 @@ export default function AuthPage() {
 
           {/* Mode toggle */}
           <div className="toggle-text">
-            {mode === "login" ? "Don't have an account?" : mode === "register" ? "Already have an account?" : "Remembered your password?"}
+            {mode === "login"
+              ? "Don't have an account?"
+              : mode === "register"
+              ? "Already have an account?"
+              : "Remembered your password?"}
             <span
               className="toggle-link"
               onClick={() =>
@@ -188,7 +205,6 @@ export default function AuthPage() {
               {mode === "login" ? " Register" : " Login"}
             </span>
           </div>
-
         </div>
       </div>
     </div>
