@@ -1,12 +1,22 @@
-/* Page center */
 .auth-container {
   min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
   font-family: Arial, sans-serif;
+
+  background:
+    linear-gradient(
+      rgba(232, 245, 233, 0.25),
+      rgba(200, 230, 201, 0.85)
+    ),
+    url("./images/crop_img.png");
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
+
 
 /* Wrapper */
 .authWrap {
