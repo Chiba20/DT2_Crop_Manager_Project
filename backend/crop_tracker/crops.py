@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import uuid
 from crop_tracker.model import get_db
 import re
-
+from flask import session
 # -----------------------------
 # Blueprints
 # -----------------------------
@@ -12,7 +12,7 @@ auth_routes = Blueprint("auth_routes", __name__, url_prefix="/api")
 crop_routes = Blueprint("crop_routes", __name__, url_prefix="/api")
 
 # -----------------------------
-# Validation Functions (UNCHANGED)
+# Validation Functions
 # -----------------------------
 def validate_email(email):
     return re.match(r"[^@]+@[^@]+\.[^@]+", email) is not None
@@ -31,7 +31,7 @@ def validate_date(date_string):
         return False
 
 # -----------------------------
-# AUTH ROUTES (UNCHANGED)
+# AUTH ROUTES
 # -----------------------------
 @auth_routes.route("/register", methods=["POST"])
 def register():
@@ -52,12 +52,10 @@ def register():
     conn = get_db()
     cursor = conn.cursor()
 
+    # Only check email uniqueness, username can be duplicate
     if cursor.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone():
         conn.close()
         return jsonify({"success": False, "message": "Email already exists"}), 400
-    if cursor.execute("SELECT id FROM users WHERE username=?", (username,)).fetchone():
-        conn.close()
-        return jsonify({"success": False, "message": "Username already exists"}), 400
 
     hashed_password = generate_password_hash(password)
     cursor.execute(
@@ -70,6 +68,7 @@ def register():
 
     return jsonify({"success": True, "userId": user_id}), 201
 
+
 @auth_routes.route("/login", methods=["POST"])
 def login():
     data = request.get_json() or {}
@@ -78,8 +77,6 @@ def login():
 
     if not all([email, password]):
         return jsonify({"success": False, "message": "Email and password are required"}), 400
-    if not validate_email(email):
-        return jsonify({"success": False, "message": "Invalid email"}), 400
 
     conn = get_db()
     user = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
@@ -88,7 +85,13 @@ def login():
     if not user or not check_password_hash(user["password"], password):
         return jsonify({"success": False, "message": "Invalid credentials"}), 400
 
+    # ✅ Store user_id in session
+    session["user_id"] = user["id"]
+
     return jsonify({"success": True, "userId": user["id"]}), 200
+
+
+
 
 @auth_routes.route("/reset-password", methods=["POST"])
 def request_password_reset():
@@ -116,6 +119,7 @@ def request_password_reset():
     conn.close()
 
     return jsonify({"success": True, "token": token}), 200
+
 
 @auth_routes.route("/reset-password/<token>", methods=["POST"])
 def reset_password(token):
@@ -150,8 +154,9 @@ def reset_password(token):
 
     return jsonify({"success": True, "message": "Password reset successful"}), 200
 
+
 # -----------------------------
-# CROP ROUTES (ORIGINAL)
+# CROP ROUTES
 # -----------------------------
 @crop_routes.route("/crop/<int:user_id>", methods=["POST"])
 def add_crop(user_id):
@@ -183,9 +188,7 @@ def add_crop(user_id):
 
     return jsonify({"message": "Crop added successfully!"}), 201
 
-# -----------------------------
-# ✅ PAGINATION ADDED (VALIDATION KEPT)
-# -----------------------------
+
 @crop_routes.route("/crop/<int:user_id>", methods=["GET"])
 def get_crops(user_id):
     page = request.args.get("page", 1, type=int)
@@ -216,9 +219,7 @@ def get_crops(user_id):
         "total": total
     }), 200
 
-# -----------------------------
-# ✅ UPDATE CROP (WITH SAME VALIDATION)
-# -----------------------------
+
 @crop_routes.route("/crop/<int:crop_id>/<int:user_id>", methods=["PUT"])
 def update_crop(crop_id, user_id):
     data = request.get_json() or {}
@@ -258,9 +259,7 @@ def update_crop(crop_id, user_id):
 
     return jsonify({"message": "Crop updated successfully!"}), 200
 
-# -----------------------------
-# ✅ DELETE CROP (SAFE)
-# -----------------------------
+
 @crop_routes.route("/crop/<int:crop_id>/<int:user_id>", methods=["DELETE"])
 def delete_crop(crop_id, user_id):
     conn = get_db()
