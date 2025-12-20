@@ -80,7 +80,6 @@ def add_harvest(crop_id, user_id):
     if not date or not yield_amount:
         return jsonify({"error": "Date and yield_amount are required"}), 400
 
-    # Validate date format
     if not validate_date(date):
         return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
 
