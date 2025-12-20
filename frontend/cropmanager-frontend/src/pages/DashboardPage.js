@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { getCrops, deleteCrop, updateCrop } from "../services/api";
+import { getCrops, updateCrop, deleteCrop } from "../services/api";
 import "../styles/Dashboard.css";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [crops, setCrops] = useState([]);
+  const [isCropsAdded, setIsCropsAdded] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ name: "", area: "", planting_date: "" });
   const [page, setPage] = useState(1);
@@ -21,23 +22,28 @@ export default function DashboardPage() {
     navigate("/");
   };
 
-  // Fetch crops with pagination
+  // Fetch crops with pagination using services/api
   const fetchCrops = useCallback(async () => {
     if (!userId) return;
     try {
       const data = await getCrops(userId, page, limit);
       setCrops(data.data || []);
       setTotal(data.total || 0);
+      setIsCropsAdded(data.data?.length > 0);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching crops:", err);
       setCrops([]);
       setTotal(0);
+      setIsCropsAdded(false);
     }
   }, [userId, page, limit]);
 
   useEffect(() => {
-    if (!userId) navigate("/");
-    else fetchCrops();
+    if (!userId) {
+      navigate("/");
+      return;
+    }
+    fetchCrops();
   }, [userId, page, fetchCrops, navigate]);
 
   // Delete crop
@@ -59,7 +65,7 @@ export default function DashboardPage() {
   };
 
   const handleSaveEdit = async (cropId) => {
-    // Validations
+    // Validation
     if (!editForm.name.trim()) return alert("Name cannot be empty");
     if (!isNaN(editForm.name)) return alert("Name must be a string");
     const areaNum = parseFloat(editForm.area);
@@ -90,7 +96,7 @@ export default function DashboardPage() {
       {/* Action Buttons */}
       <div className="dashboard-actions">
         <button className="add-crop-btn" onClick={() => navigate("/crop")}>➕ Add New Crop</button>
-        {crops.length > 0 && <button className="view-harvest-btn" onClick={() => navigate("/harvest-stats")}>📊 View Harvest Stats</button>}
+        {isCropsAdded && <button className="view-harvest-btn" onClick={() => navigate("/harvest-stats")}>📊 View Harvest Stats</button>}
       </div>
 
       {/* Crops Table */}
@@ -108,21 +114,32 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {crops.map(crop => (
+              {Array.isArray(crops) && crops.map((crop) => (
                 <tr key={crop.id}>
                   <td>
                     {editingId === crop.id ? (
-                      <input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
+                      <input
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      />
                     ) : crop.name}
                   </td>
                   <td>
                     {editingId === crop.id ? (
-                      <input type="number" value={editForm.area} onChange={e => setEditForm({ ...editForm, area: e.target.value })} />
+                      <input
+                        type="number"
+                        value={editForm.area}
+                        onChange={(e) => setEditForm({ ...editForm, area: e.target.value })}
+                      />
                     ) : crop.area}
                   </td>
                   <td>
                     {editingId === crop.id ? (
-                      <input type="date" value={editForm.planting_date} onChange={e => setEditForm({ ...editForm, planting_date: e.target.value })} />
+                      <input
+                        type="date"
+                        value={editForm.planting_date}
+                        onChange={(e) => setEditForm({ ...editForm, planting_date: e.target.value })}
+                      />
                     ) : crop.planting_date}
                   </td>
                   <td style={{ display: "flex", gap: "5px" }}>
@@ -148,9 +165,9 @@ export default function DashboardPage() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div style={{ marginTop: "20px", display: "flex", justifyContent: "center", gap: "10px" }}>
-            <button onClick={() => setPage(p => Math.max(p - 1, 1))} disabled={page === 1}>Prev</button>
+            <button onClick={() => setPage((p) => Math.max(p - 1, 1))} disabled={page === 1}>Prev</button>
             <span>Page {page} of {totalPages}</span>
-            <button onClick={() => setPage(p => (p < totalPages ? p + 1 : p))} disabled={page >= totalPages}>Next</button>
+            <button onClick={() => setPage((p) => (p < totalPages ? p + 1 : p))} disabled={page >= totalPages}>Next</button>
           </div>
         )}
       </div>

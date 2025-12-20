@@ -118,3 +118,19 @@
     width: 100%;
   }
 }
+
+
+/* Pagination */
+.pagination button {
+  background: #2e7d32;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.pagination button:disabled {
+  background: #a5d6a7;
+  cursor: not-allowed;
+}
