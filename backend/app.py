@@ -3,6 +3,8 @@ from flask_cors import CORS
 from crop_tracker.model import init_db
 from crop_tracker.crops import auth_routes, crop_routes
 from crop_tracker.harvest import harvest_routes  # Import harvest routes
+from crop_tracker.prediction import prediction_routes
+
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "MYSECRET_KEY"  # Use for sessions if needed
@@ -16,10 +18,11 @@ CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
 # Initialize database
 init_db()
 
-# Register Blueprints
-app.register_blueprint(auth_routes, url_prefix='/api')
-app.register_blueprint(crop_routes, url_prefix='/api')
-app.register_blueprint(harvest_routes, url_prefix='/api')  # Register harvest routes
+# Register Blueprints (each blueprint already defines its own url_prefix)
+app.register_blueprint(auth_routes)
+app.register_blueprint(crop_routes)
+app.register_blueprint(harvest_routes)  # Register harvest routes
+app.register_blueprint(prediction_routes)
 
 
 # Root endpoint

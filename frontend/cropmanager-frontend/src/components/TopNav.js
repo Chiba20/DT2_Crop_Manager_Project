@@ -15,10 +15,8 @@ export default function TopNav({ onLogout }) {
 
       <div className="topnav-links">
         <Link className={isActive("/dashboard")} to="/dashboard">Dashboard</Link>
-        <Link className={isActive("/crop")} to="/crop">Add Crop</Link>
         <Link className={isActive("/harvest-stats")} to="/harvest-stats">Harvest Stats</Link>
-        <Link className={isActive("/predict")} to="/predict">Prediction</Link>
-
+        <Link className={isActive("/prediction")} to="/prediction">Prediction</Link>
       </div>
 
       <div className="topnav-right">

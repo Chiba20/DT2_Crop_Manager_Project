@@ -6,8 +6,7 @@ import DashboardPage from "./pages/DashboardPage";
 import CropPage from "./pages/CropPage";
 import HarvestPage from "./pages/HarvestPage";
 import HarvestStatsPage from "./pages/HarvestStatsPage";
-import YieldPredictor from "./pages/YieldPredictor";
-
+import PredictionPage from "./pages/PredictionPage";
 
 import Layout from "./components/Layout";
 
@@ -25,8 +24,8 @@ export default function App() {
           <Route path="/harvest/:cropId" element={<HarvestPage />} />
           <Route path="/harvest-stats" element={<HarvestStatsPage />} />
 
-          {/* Module 3 */}
-          <Route path="/predict" element={<YieldPredictor />} />
+          {/* Module 3: Yield Predictor */}
+          <Route path="/prediction" element={<PredictionPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
