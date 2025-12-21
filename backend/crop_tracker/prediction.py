@@ -1,5 +1,4 @@
 # prediction.py (FULL) — Area in acres, yield in kilograms (kg)
-
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 from crop_tracker.model import get_db
@@ -36,31 +35,33 @@ TIPS = {
     ],
 }
 
+# -------------------------------
+# Helpers (SQLite + Postgres compatible)
+# -------------------------------
+def validate_date_str(date_str: str) -> bool:
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+        return True
+    except Exception:
+        return False
 
-# -------------------------------
-# Helpers
-# -------------------------------
 def parse_month(date_str: str):
     try:
         return int(datetime.strptime(date_str, "%Y-%m-%d").strftime("%m"))
     except Exception:
         return None
 
-
 def clamp(x, lo, hi):
     return max(lo, min(hi, x))
 
-
 def season_factor(month: int):
-    # Small seasonal effect (simple & safe)
-    if month in [3, 4, 5]:      # long rains
+    if month in [3, 4, 5]:
         return 1.06
-    if month in [10, 11, 12]:   # short rains
+    if month in [10, 11, 12]:
         return 1.03
-    if month in [6, 7, 8, 9]:   # dry-ish
+    if month in [6, 7, 8, 9]:
         return 0.95
     return 1.00
-
 
 def season_name(month: int):
     if month in [3, 4, 5]:
@@ -70,7 +71,6 @@ def season_name(month: int):
     if month in [6, 7, 8, 9]:
         return "Dry"
     return "Other"
-
 
 def category_from_kg_per_acre(pred_kg_acre: float, baseline_kg_acre: float):
     if baseline_kg_acre <= 0:
@@ -82,20 +82,38 @@ def category_from_kg_per_acre(pred_kg_acre: float, baseline_kg_acre: float):
         return "Medium"
     return "High"
 
+def is_postgres(conn) -> bool:
+    try:
+        import sqlite3
+        return not isinstance(conn, sqlite3.Connection)
+    except Exception:
+        return True
+
+def ph(conn) -> str:
+    return "%s" if is_postgres(conn) else "?"
+
+def row_to_dict(row):
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return row
+    try:
+        return dict(row)
+    except Exception:
+        return row
+
+def rows_to_list(rows):
+    return [row_to_dict(r) for r in rows]
+
 
 # -------------------------------
 # Stable simple regression (ridge) on kg/acre vs month
 # Model: y = b0 + b1*month
 # -------------------------------
 def train_ridge_month_model(samples, lam=0.5):
-    """
-    samples: list of (month:int, kg_per_acre:float)
-    returns (b0, b1) or None
-    """
     if len(samples) < 3:
         return None
 
-    # Normal equation components for 2-parameter model [1, month]
     xtx00 = 0.0
     xtx01 = 0.0
     xtx11 = 0.0
@@ -114,7 +132,6 @@ def train_ridge_month_model(samples, lam=0.5):
         xty0 += x0 * y
         xty1 += x1 * y
 
-    # Ridge regularization
     xtx00 += lam
     xtx11 += lam
 
@@ -131,12 +148,7 @@ def train_ridge_month_model(samples, lam=0.5):
     b1 = inv10 * xty0 + inv11 * xty1
     return (b0, b1)
 
-
 def blended_pred_kg_per_acre(month, profile, model, n_points):
-    """
-    Baseline + season factor, blended with model prediction if available.
-    More training points => trust model more.
-    """
     baseline = profile["baseline"] * season_factor(month)
 
     if not model:
@@ -145,12 +157,10 @@ def blended_pred_kg_per_acre(month, profile, model, n_points):
     b0, b1 = model
     model_pred = b0 + b1 * month
 
-    # Blend weight: 0.25..0.85
     w = clamp(0.20 + 0.10 * n_points, 0.25, 0.85)
     pred = (w * model_pred) + ((1.0 - w) * baseline)
 
     return clamp(pred, profile["min"], profile["max"])
-
 
 def confidence_label(n_points, used_model):
     if not used_model:
@@ -177,18 +187,22 @@ def predict_yield(crop_id):
         return jsonify({"error": "Invalid user_id"}), 400
 
     conn = get_db()
+    cur = conn.cursor()
+    p = ph(conn)
+    pg = is_postgres(conn)
 
     # Ownership check
-    crop = conn.execute(
-        "SELECT * FROM crops WHERE id=? AND user_id=?",
+    cur.execute(
+        f"SELECT id, user_id, name, area, planting_date FROM crops WHERE id={p} AND user_id={p}",
         (crop_id, user_id_int)
-    ).fetchone()
+    )
+    crop = row_to_dict(cur.fetchone())
 
     if not crop:
         conn.close()
         return jsonify({"error": "Unauthorized or invalid crop"}), 403
 
-    # Area is stored in acres
+    # Area stored in acres
     try:
         area_acres = float(crop["area"])
     except Exception:
@@ -200,7 +214,18 @@ def predict_yield(crop_id):
         return jsonify({"error": "Area must be > 0 acres"}), 400
 
     planting_date = crop["planting_date"]
-    month = parse_month(planting_date)
+
+    # planting_date might be DATE (postgres) or TEXT (sqlite)
+    if isinstance(planting_date, (datetime,)):
+        planting_date_str = planting_date.date().isoformat()
+    else:
+        planting_date_str = str(planting_date)
+
+    if not validate_date_str(planting_date_str):
+        conn.close()
+        return jsonify({"error": "Invalid planting_date stored for this crop"}), 400
+
+    month = parse_month(planting_date_str)
     if month is None:
         conn.close()
         return jsonify({"error": "Invalid planting_date stored for this crop"}), 400
@@ -209,18 +234,34 @@ def predict_yield(crop_id):
     profile = CROP_PROFILES.get(crop_name, DEFAULT_PROFILE)
 
     # Training data: same crop name for this user
-    rows = conn.execute("""
-        SELECT c.area AS area_acres,
-               CAST(strftime('%m', c.planting_date) AS INTEGER) AS month_planted,
-               h.yield_amount AS yield_kg
-        FROM harvests h
-        JOIN crops c ON h.crop_id = c.id
-        WHERE c.user_id = ?
-          AND c.name = ?
-          AND c.area > 0
-          AND h.yield_amount > 0
-    """, (user_id_int, crop_name)).fetchall()
+    if pg:
+        # Postgres: EXTRACT(MONTH FROM date)
+        cur.execute(f"""
+            SELECT c.area AS area_acres,
+                   EXTRACT(MONTH FROM c.planting_date)::INT AS month_planted,
+                   h.yield_amount AS yield_kg
+            FROM harvests h
+            JOIN crops c ON h.crop_id = c.id
+            WHERE c.user_id = {p}
+              AND c.name = {p}
+              AND c.area > 0
+              AND h.yield_amount > 0
+        """, (user_id_int, crop_name))
+    else:
+        # SQLite: strftime
+        cur.execute(f"""
+            SELECT c.area AS area_acres,
+                   CAST(strftime('%m', c.planting_date) AS INTEGER) AS month_planted,
+                   h.yield_amount AS yield_kg
+            FROM harvests h
+            JOIN crops c ON h.crop_id = c.id
+            WHERE c.user_id = {p}
+              AND c.name = {p}
+              AND c.area > 0
+              AND h.yield_amount > 0
+        """, (user_id_int, crop_name))
 
+    rows = rows_to_list(cur.fetchall())
     conn.close()
 
     # Convert training records -> kg/acre
@@ -232,7 +273,6 @@ def predict_yield(crop_id):
             y = float(r["yield_kg"])
             if a > 0 and y > 0 and 1 <= m <= 12:
                 kg_per_acre = y / a
-                # clamp outliers (data entry errors)
                 kg_per_acre = clamp(kg_per_acre, profile["min"] * 0.5, profile["max"] * 1.5)
                 samples.append((m, kg_per_acre))
         except Exception:
@@ -252,7 +292,7 @@ def predict_yield(crop_id):
         "crop_name": crop_name,
         "area": area_acres,
         "area_unit": "acres",
-        "planting_date": planting_date,
+        "planting_date": planting_date_str,
         "month_planted": month,
         "season": season,
 

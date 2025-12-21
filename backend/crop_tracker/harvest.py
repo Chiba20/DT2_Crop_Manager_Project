@@ -16,6 +16,37 @@ def validate_date(date_string):
         return False
 
 
+# -------------------------------
+# Helpers (SQLite + Postgres compatible)
+# -------------------------------
+def is_postgres(conn) -> bool:
+    try:
+        import sqlite3
+        return not isinstance(conn, sqlite3.Connection)
+    except Exception:
+        return True
+
+
+def ph(conn) -> str:
+    # placeholder
+    return "%s" if is_postgres(conn) else "?"
+
+
+def row_to_dict(row):
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return row
+    try:
+        return dict(row)
+    except Exception:
+        return row
+
+
+def rows_to_list(rows):
+    return [row_to_dict(r) for r in rows]
+
+
 # =====================================================
 # POST /api/harvest/<crop_id>/<user_id>
 # =====================================================
@@ -39,17 +70,23 @@ def add_harvest(crop_id, user_id):
         return jsonify({"error": "Yield must be a number"}), 400
 
     conn = get_db()
-    crop = conn.execute(
-        "SELECT * FROM crops WHERE id=? AND user_id=?",
+    cur = conn.cursor()
+    p = ph(conn)
+
+    # Ownership check
+    cur.execute(
+        f"SELECT * FROM crops WHERE id={p} AND user_id={p}",
         (crop_id, user_id)
-    ).fetchone()
+    )
+    crop = row_to_dict(cur.fetchone())
 
     if not crop:
         conn.close()
         return jsonify({"error": "Unauthorized or invalid crop"}), 403
 
-    conn.execute(
-        "INSERT INTO harvests (crop_id, date, yield_amount) VALUES (?, ?, ?)",
+    # Insert harvest
+    cur.execute(
+        f"INSERT INTO harvests (crop_id, date, yield_amount) VALUES ({p}, {p}, {p})",
         (crop_id, date, yield_amount)
     )
     conn.commit()
@@ -68,19 +105,23 @@ def get_harvests():
         return jsonify({"error": "User not logged in"}), 401
 
     conn = get_db()
-    harvests = conn.execute("""
+    cur = conn.cursor()
+    p = ph(conn)
+
+    cur.execute(f"""
         SELECT h.id,
                c.name AS crop_name,
                h.date,
                h.yield_amount
         FROM harvests h
         JOIN crops c ON h.crop_id = c.id
-        WHERE c.user_id = ?
+        WHERE c.user_id = {p}
         ORDER BY h.date DESC
-    """, (user_id,)).fetchall()
+    """, (user_id,))
+    harvests = rows_to_list(cur.fetchall())
     conn.close()
 
-    return jsonify([dict(h) for h in harvests]), 200
+    return jsonify(harvests), 200
 
 
 # =====================================================
@@ -93,7 +134,10 @@ def get_harvest_stats():
         return jsonify({"error": "User not logged in"}), 401
 
     conn = get_db()
-    stats = conn.execute("""
+    cur = conn.cursor()
+    p = ph(conn)
+
+    cur.execute(f"""
         SELECT c.name AS crop_name,
                SUM(h.yield_amount) AS total_yield,
                AVG(h.yield_amount) AS avg_yield,
@@ -101,26 +145,27 @@ def get_harvest_stats():
                MAX(h.date) AS last_cropping_date
         FROM harvests h
         JOIN crops c ON h.crop_id = c.id
-        WHERE c.user_id = ?
+        WHERE c.user_id = {p}
         GROUP BY c.name
         ORDER BY total_yield DESC
-    """, (user_id,)).fetchall()
-
-    overall_total = sum((row["total_yield"] or 0) for row in stats)
+    """, (user_id,))
+    stats_rows = rows_to_list(cur.fetchall())
     conn.close()
+
+    overall_total = sum(float((r.get("total_yield") or 0)) for r in stats_rows)
 
     return jsonify({
         "stats": [
             {
-                "crop_name": row["crop_name"],
-                "total_yield": row["total_yield"] or 0,
-                "avg_yield": row["avg_yield"] or 0,
-                "harvest_count": row["harvest_count"],
-                "last_cropping_date": row["last_cropping_date"]
+                "crop_name": r.get("crop_name"),
+                "total_yield": float(r.get("total_yield") or 0),
+                "avg_yield": float(r.get("avg_yield") or 0),
+                "harvest_count": int(r.get("harvest_count") or 0),
+                "last_cropping_date": r.get("last_cropping_date"),
             }
-            for row in stats
+            for r in stats_rows
         ],
-        "overall_total_yield": overall_total
+        "overall_total_yield": float(overall_total)
     }), 200
 
 
@@ -134,20 +179,42 @@ def summary_yearly():
         return jsonify({"error": "User not logged in"}), 401
 
     conn = get_db()
-    rows = conn.execute("""
-        SELECT strftime('%Y', h.date) AS year,
-               SUM(h.yield_amount) AS total_yield
-        FROM harvests h
-        JOIN crops c ON h.crop_id = c.id
-        WHERE c.user_id = ?
-        GROUP BY year
-        ORDER BY year
-    """, (user_id,)).fetchall()
+    cur = conn.cursor()
+    p = ph(conn)
+    pg = is_postgres(conn)
+
+    if pg:
+        cur.execute(f"""
+            SELECT EXTRACT(YEAR FROM h.date)::INT AS year,
+                   SUM(h.yield_amount) AS total_yield
+            FROM harvests h
+            JOIN crops c ON h.crop_id = c.id
+            WHERE c.user_id = {p}
+            GROUP BY year
+            ORDER BY year
+        """, (user_id,))
+    else:
+        cur.execute(f"""
+            SELECT strftime('%Y', h.date) AS year,
+                   SUM(h.yield_amount) AS total_yield
+            FROM harvests h
+            JOIN crops c ON h.crop_id = c.id
+            WHERE c.user_id = {p}
+            GROUP BY year
+            ORDER BY year
+        """, (user_id,))
+
+    rows = rows_to_list(cur.fetchall())
     conn.close()
 
-    return jsonify({
-        "yearly": [{"year": r["year"], "total_yield": r["total_yield"] or 0} for r in rows]
-    }), 200
+    yearly = []
+    for r in rows:
+        yearly.append({
+            "year": str(r.get("year")),
+            "total_yield": float(r.get("total_yield") or 0)
+        })
+
+    return jsonify({"yearly": yearly}), 200
 
 
 # =====================================================
@@ -170,49 +237,99 @@ def top_crops_yearly():
     top_n = max(1, min(top_n, 30))
 
     conn = get_db()
+    cur = conn.cursor()
+    p = ph(conn)
+    pg = is_postgres(conn)
 
-    top_rows = conn.execute("""
-        SELECT c.name AS crop_name,
-               SUM(h.yield_amount) AS total_yield
-        FROM harvests h
-        JOIN crops c ON h.crop_id = c.id
-        WHERE c.user_id = ?
-          AND CAST(strftime('%Y', h.date) AS INTEGER) BETWEEN ? AND ?
-        GROUP BY c.name
-        ORDER BY total_yield DESC
-        LIMIT ?
-    """, (user_id, year_from, year_to, top_n)).fetchall()
-
-    top_names = [r["crop_name"] for r in top_rows]
-
-    all_totals = conn.execute("""
-        SELECT CAST(strftime('%Y', h.date) AS INTEGER) AS year,
-               SUM(h.yield_amount) AS total_yield
-        FROM harvests h
-        JOIN crops c ON h.crop_id = c.id
-        WHERE c.user_id = ?
-          AND CAST(strftime('%Y', h.date) AS INTEGER) BETWEEN ? AND ?
-        GROUP BY year
-        ORDER BY year
-    """, (user_id, year_from, year_to)).fetchall()
-
-    all_total_by_year = {int(r["year"]): float(r["total_yield"] or 0) for r in all_totals}
-
-    top_year_crop = []
-    if top_names:
-        placeholders = ",".join(["?"] * len(top_names))
-        top_year_crop = conn.execute(f"""
-            SELECT CAST(strftime('%Y', h.date) AS INTEGER) AS year,
-                   c.name AS crop_name,
+    # Top crops total
+    if pg:
+        cur.execute(f"""
+            SELECT c.name AS crop_name,
                    SUM(h.yield_amount) AS total_yield
             FROM harvests h
             JOIN crops c ON h.crop_id = c.id
-            WHERE c.user_id = ?
-              AND CAST(strftime('%Y', h.date) AS INTEGER) BETWEEN ? AND ?
-              AND c.name IN ({placeholders})
-            GROUP BY year, c.name
-            ORDER BY year, c.name
-        """, (user_id, year_from, year_to, *top_names)).fetchall()
+            WHERE c.user_id = {p}
+              AND EXTRACT(YEAR FROM h.date)::INT BETWEEN {p} AND {p}
+            GROUP BY c.name
+            ORDER BY total_yield DESC
+            LIMIT {int(top_n)}
+        """, (user_id, year_from, year_to))
+    else:
+        cur.execute(f"""
+            SELECT c.name AS crop_name,
+                   SUM(h.yield_amount) AS total_yield
+            FROM harvests h
+            JOIN crops c ON h.crop_id = c.id
+            WHERE c.user_id = {p}
+              AND CAST(strftime('%Y', h.date) AS INTEGER) BETWEEN {p} AND {p}
+            GROUP BY c.name
+            ORDER BY total_yield DESC
+            LIMIT {p}
+        """, (user_id, year_from, year_to, top_n))
+
+    top_rows = rows_to_list(cur.fetchall())
+    top_names = [r["crop_name"] for r in top_rows]
+
+    # Total by year (all crops)
+    if pg:
+        cur.execute(f"""
+            SELECT EXTRACT(YEAR FROM h.date)::INT AS year,
+                   SUM(h.yield_amount) AS total_yield
+            FROM harvests h
+            JOIN crops c ON h.crop_id = c.id
+            WHERE c.user_id = {p}
+              AND EXTRACT(YEAR FROM h.date)::INT BETWEEN {p} AND {p}
+            GROUP BY year
+            ORDER BY year
+        """, (user_id, year_from, year_to))
+    else:
+        cur.execute(f"""
+            SELECT CAST(strftime('%Y', h.date) AS INTEGER) AS year,
+                   SUM(h.yield_amount) AS total_yield
+            FROM harvests h
+            JOIN crops c ON h.crop_id = c.id
+            WHERE c.user_id = {p}
+              AND CAST(strftime('%Y', h.date) AS INTEGER) BETWEEN {p} AND {p}
+            GROUP BY year
+            ORDER BY year
+        """, (user_id, year_from, year_to))
+
+    all_totals = rows_to_list(cur.fetchall())
+    all_total_by_year = {int(r["year"]): float(r.get("total_yield") or 0) for r in all_totals}
+
+    # Breakdown: year x crop (only top crops)
+    top_year_crop = []
+    if top_names:
+        if pg:
+            placeholders = ",".join([p] * len(top_names))
+            cur.execute(f"""
+                SELECT EXTRACT(YEAR FROM h.date)::INT AS year,
+                       c.name AS crop_name,
+                       SUM(h.yield_amount) AS total_yield
+                FROM harvests h
+                JOIN crops c ON h.crop_id = c.id
+                WHERE c.user_id = {p}
+                  AND EXTRACT(YEAR FROM h.date)::INT BETWEEN {p} AND {p}
+                  AND c.name IN ({placeholders})
+                GROUP BY year, c.name
+                ORDER BY year, c.name
+            """, (user_id, year_from, year_to, *top_names))
+        else:
+            placeholders = ",".join(["?"] * len(top_names))
+            cur.execute(f"""
+                SELECT CAST(strftime('%Y', h.date) AS INTEGER) AS year,
+                       c.name AS crop_name,
+                       SUM(h.yield_amount) AS total_yield
+                FROM harvests h
+                JOIN crops c ON h.crop_id = c.id
+                WHERE c.user_id = ?
+                  AND CAST(strftime('%Y', h.date) AS INTEGER) BETWEEN ? AND ?
+                  AND c.name IN ({placeholders})
+                GROUP BY year, c.name
+                ORDER BY year, c.name
+            """, (user_id, year_from, year_to, *top_names))
+
+        top_year_crop = rows_to_list(cur.fetchall())
 
     conn.close()
 
@@ -221,7 +338,7 @@ def top_crops_yearly():
 
     for r in top_year_crop:
         y = int(r["year"])
-        year_map[y][r["crop_name"]] = float(r["total_yield"] or 0)
+        year_map[y][r["crop_name"]] = float(r.get("total_yield") or 0)
 
     for y in years:
         for name in top_names:
@@ -257,48 +374,93 @@ def crop_year_filter():
         return jsonify({"error": "year is required"}), 400
 
     conn = get_db()
+    cur = conn.cursor()
+    p = ph(conn)
+    pg = is_postgres(conn)
 
-    planted_row = conn.execute("""
-        SELECT COUNT(*) AS planted_count
-        FROM crops
-        WHERE user_id = ?
-          AND name = ?
-          AND CAST(strftime('%Y', planting_date) AS INTEGER) = ?
-    """, (user_id, crop, year)).fetchone()
+    # planted count
+    if pg:
+        cur.execute(f"""
+            SELECT COUNT(*) AS planted_count
+            FROM crops
+            WHERE user_id = {p}
+              AND name = {p}
+              AND EXTRACT(YEAR FROM planting_date)::INT = {p}
+        """, (user_id, crop, year))
+    else:
+        cur.execute(f"""
+            SELECT COUNT(*) AS planted_count
+            FROM crops
+            WHERE user_id = {p}
+              AND name = {p}
+              AND CAST(strftime('%Y', planting_date) AS INTEGER) = {p}
+        """, (user_id, crop, year))
 
-    harvest_row = conn.execute("""
-        SELECT COUNT(h.id) AS harvest_events,
-               COALESCE(SUM(h.yield_amount), 0) AS total_yield,
-               COALESCE(AVG(h.yield_amount), 0) AS avg_yield
-        FROM harvests h
-        JOIN crops c ON h.crop_id = c.id
-        WHERE c.user_id = ?
-          AND c.name = ?
-          AND CAST(strftime('%Y', h.date) AS INTEGER) = ?
-    """, (user_id, crop, year)).fetchone()
+    planted_row = row_to_dict(cur.fetchone())
 
-    monthly_rows = conn.execute("""
-        SELECT CAST(strftime('%m', h.date) AS INTEGER) AS month,
-               COALESCE(SUM(h.yield_amount), 0) AS total_yield
-        FROM harvests h
-        JOIN crops c ON h.crop_id = c.id
-        WHERE c.user_id = ?
-          AND c.name = ?
-          AND CAST(strftime('%Y', h.date) AS INTEGER) = ?
-        GROUP BY month
-        ORDER BY month
-    """, (user_id, crop, year)).fetchall()
+    # harvest stats
+    if pg:
+        cur.execute(f"""
+            SELECT COUNT(h.id) AS harvest_events,
+                   COALESCE(SUM(h.yield_amount), 0) AS total_yield,
+                   COALESCE(AVG(h.yield_amount), 0) AS avg_yield
+            FROM harvests h
+            JOIN crops c ON h.crop_id = c.id
+            WHERE c.user_id = {p}
+              AND c.name = {p}
+              AND EXTRACT(YEAR FROM h.date)::INT = {p}
+        """, (user_id, crop, year))
+    else:
+        cur.execute(f"""
+            SELECT COUNT(h.id) AS harvest_events,
+                   COALESCE(SUM(h.yield_amount), 0) AS total_yield,
+                   COALESCE(AVG(h.yield_amount), 0) AS avg_yield
+            FROM harvests h
+            JOIN crops c ON h.crop_id = c.id
+            WHERE c.user_id = {p}
+              AND c.name = {p}
+              AND CAST(strftime('%Y', h.date) AS INTEGER) = {p}
+        """, (user_id, crop, year))
 
+    harvest_row = row_to_dict(cur.fetchone())
+
+    # monthly breakdown
+    if pg:
+        cur.execute(f"""
+            SELECT EXTRACT(MONTH FROM h.date)::INT AS month,
+                   COALESCE(SUM(h.yield_amount), 0) AS total_yield
+            FROM harvests h
+            JOIN crops c ON h.crop_id = c.id
+            WHERE c.user_id = {p}
+              AND c.name = {p}
+              AND EXTRACT(YEAR FROM h.date)::INT = {p}
+            GROUP BY month
+            ORDER BY month
+        """, (user_id, crop, year))
+    else:
+        cur.execute(f"""
+            SELECT CAST(strftime('%m', h.date) AS INTEGER) AS month,
+                   COALESCE(SUM(h.yield_amount), 0) AS total_yield
+            FROM harvests h
+            JOIN crops c ON h.crop_id = c.id
+            WHERE c.user_id = {p}
+              AND c.name = {p}
+              AND CAST(strftime('%Y', h.date) AS INTEGER) = {p}
+            GROUP BY month
+            ORDER BY month
+        """, (user_id, crop, year))
+
+    monthly_rows = rows_to_list(cur.fetchall())
     conn.close()
 
     return jsonify({
         "crop": crop,
         "year": year,
-        "planted_count": int(planted_row["planted_count"] or 0),
-        "harvest_events": int(harvest_row["harvest_events"] or 0),
-        "total_yield": float(harvest_row["total_yield"] or 0),
-        "avg_yield": float(harvest_row["avg_yield"] or 0),
-        "monthly": [{"month": int(r["month"]), "total_yield": float(r["total_yield"] or 0)} for r in monthly_rows]
+        "planted_count": int(planted_row.get("planted_count") or 0),
+        "harvest_events": int(harvest_row.get("harvest_events") or 0),
+        "total_yield": float(harvest_row.get("total_yield") or 0),
+        "avg_yield": float(harvest_row.get("avg_yield") or 0),
+        "monthly": [{"month": int(r["month"]), "total_yield": float(r.get("total_yield") or 0)} for r in monthly_rows]
     }), 200
 
 
@@ -317,20 +479,38 @@ def seasonality():
         return jsonify({"error": "from and to years are required"}), 400
 
     conn = get_db()
-    rows = conn.execute("""
-        SELECT CAST(strftime('%m', h.date) AS INTEGER) AS month,
-               SUM(h.yield_amount) AS total_yield
-        FROM harvests h
-        JOIN crops c ON h.crop_id = c.id
-        WHERE c.user_id = ?
-          AND CAST(strftime('%Y', h.date) AS INTEGER) BETWEEN ? AND ?
-        GROUP BY month
-        ORDER BY month
-    """, (user_id, year_from, year_to)).fetchall()
+    cur = conn.cursor()
+    p = ph(conn)
+    pg = is_postgres(conn)
+
+    if pg:
+        cur.execute(f"""
+            SELECT EXTRACT(MONTH FROM h.date)::INT AS month,
+                   SUM(h.yield_amount) AS total_yield
+            FROM harvests h
+            JOIN crops c ON h.crop_id = c.id
+            WHERE c.user_id = {p}
+              AND EXTRACT(YEAR FROM h.date)::INT BETWEEN {p} AND {p}
+            GROUP BY month
+            ORDER BY month
+        """, (user_id, year_from, year_to))
+    else:
+        cur.execute(f"""
+            SELECT CAST(strftime('%m', h.date) AS INTEGER) AS month,
+                   SUM(h.yield_amount) AS total_yield
+            FROM harvests h
+            JOIN crops c ON h.crop_id = c.id
+            WHERE c.user_id = {p}
+              AND CAST(strftime('%Y', h.date) AS INTEGER) BETWEEN {p} AND {p}
+            GROUP BY month
+            ORDER BY month
+        """, (user_id, year_from, year_to))
+
+    rows = rows_to_list(cur.fetchall())
     conn.close()
 
     return jsonify({
-        "monthly": [{"month": int(r["month"]), "total_yield": float(r["total_yield"] or 0)} for r in rows]
+        "monthly": [{"month": int(r["month"]), "total_yield": float(r.get("total_yield") or 0)} for r in rows]
     }), 200
 
 
@@ -349,25 +529,50 @@ def distribution():
         return jsonify({"error": "from and to years are required"}), 400
 
     conn = get_db()
-    rows = conn.execute("""
-        SELECT
-          CASE
-            WHEN h.yield_amount < 10 THEN '0-9'
-            WHEN h.yield_amount < 50 THEN '10-49'
-            WHEN h.yield_amount < 100 THEN '50-99'
-            WHEN h.yield_amount < 200 THEN '100-199'
-            ELSE '200+'
-          END AS label,
-          COUNT(*) AS count
-        FROM harvests h
-        JOIN crops c ON h.crop_id = c.id
-        WHERE c.user_id = ?
-          AND CAST(strftime('%Y', h.date) AS INTEGER) BETWEEN ? AND ?
-        GROUP BY label
-        ORDER BY count DESC
-    """, (user_id, year_from, year_to)).fetchall()
+    cur = conn.cursor()
+    p = ph(conn)
+    pg = is_postgres(conn)
+
+    if pg:
+        cur.execute(f"""
+            SELECT
+              CASE
+                WHEN h.yield_amount < 10 THEN '0-9'
+                WHEN h.yield_amount < 50 THEN '10-49'
+                WHEN h.yield_amount < 100 THEN '50-99'
+                WHEN h.yield_amount < 200 THEN '100-199'
+                ELSE '200+'
+              END AS label,
+              COUNT(*) AS count
+            FROM harvests h
+            JOIN crops c ON h.crop_id = c.id
+            WHERE c.user_id = {p}
+              AND EXTRACT(YEAR FROM h.date)::INT BETWEEN {p} AND {p}
+            GROUP BY label
+            ORDER BY count DESC
+        """, (user_id, year_from, year_to))
+    else:
+        cur.execute(f"""
+            SELECT
+              CASE
+                WHEN h.yield_amount < 10 THEN '0-9'
+                WHEN h.yield_amount < 50 THEN '10-49'
+                WHEN h.yield_amount < 100 THEN '50-99'
+                WHEN h.yield_amount < 200 THEN '100-199'
+                ELSE '200+'
+              END AS label,
+              COUNT(*) AS count
+            FROM harvests h
+            JOIN crops c ON h.crop_id = c.id
+            WHERE c.user_id = {p}
+              AND CAST(strftime('%Y', h.date) AS INTEGER) BETWEEN {p} AND {p}
+            GROUP BY label
+            ORDER BY count DESC
+        """, (user_id, year_from, year_to))
+
+    rows = rows_to_list(cur.fetchall())
     conn.close()
 
     return jsonify({
-        "buckets": [{"label": r["label"], "count": int(r["count"] or 0)} for r in rows]
+        "buckets": [{"label": r["label"], "count": int(r.get("count") or 0)} for r in rows]
     }), 200
