@@ -18,10 +18,10 @@ CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
 # Initialize database
 init_db()
 
-# Register Blueprints
-app.register_blueprint(auth_routes, url_prefix='/api')
-app.register_blueprint(crop_routes, url_prefix='/api')
-app.register_blueprint(harvest_routes, url_prefix='/api')  # Register harvest routes
+# Register Blueprints (each blueprint already defines its own url_prefix)
+app.register_blueprint(auth_routes)
+app.register_blueprint(crop_routes)
+app.register_blueprint(harvest_routes)  # Register harvest routes
 app.register_blueprint(prediction_routes)
 
 

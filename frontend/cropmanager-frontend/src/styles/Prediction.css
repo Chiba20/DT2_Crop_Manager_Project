@@ -1,0 +1,241 @@
+/* =========================
+   Prediction Page Container
+========================= */
+.prediction-page {
+  padding: 30px;
+  background: #ffffff;
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+}
+
+/* =========================
+   Header
+========================= */
+.prediction-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.prediction-header h1 {
+  margin: 0;
+  color: #2e7d32;
+  font-size: 36px;
+  font-weight: 800;
+}
+
+.prediction-header p {
+  margin: 6px 0 0;
+  color: #555;
+  line-height: 1.4;
+}
+
+/* Back Button */
+.back-btn {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.back-btn:hover {
+  border-color: rgba(0, 0, 0, 0.25);
+}
+
+/* =========================
+   Cards
+========================= */
+.prediction-card {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.1);
+  margin-bottom: 16px;
+}
+
+.prediction-card h2 {
+  margin: 0 0 12px;
+  color: #1b5e20;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+/* =========================
+   Controls (Select + Button)
+========================= */
+.controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.controls select {
+  flex: 1;
+  min-width: 260px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #cfd8dc;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.controls select:focus {
+  border-color: #2e7d32;
+}
+
+/* Primary Button */
+.primary {
+  background: #2e7d32;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 800;
+  height: 44px;
+}
+
+.primary:hover {
+  background: #1b5e20;
+}
+
+.primary:disabled {
+  background: #a5d6a7;
+  cursor: not-allowed;
+}
+
+/* =========================
+   Info / Error
+========================= */
+.info {
+  margin: 8px 0;
+  color: #555;
+}
+
+.error {
+  margin-top: 10px;
+  color: #c62828;
+  font-weight: 800;
+}
+
+/* =========================
+   Result Grid
+========================= */
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+  margin-bottom: 14px;
+}
+
+.result-box {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 12px;
+  background: #f7fbf8;
+}
+
+.label {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+.value {
+  font-size: 18px;
+  font-weight: 900;
+  color: #1b5e20;
+}
+
+/* Category pill */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 14px;
+  color: white;
+}
+
+.pill.low {
+  background: #c62828;
+}
+
+.pill.medium {
+  background: #f9a825;
+  color: #1b5e20;
+}
+
+.pill.high {
+  background: #2e7d32;
+}
+
+/* =========================
+   Tips
+========================= */
+.tips h3 {
+  margin: 10px 0 8px;
+  color: #1b5e20;
+  font-weight: 900;
+}
+
+.tips ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #333;
+}
+
+.tips li {
+  margin: 6px 0;
+}
+
+/* =========================
+   Meta Info
+========================= */
+.meta {
+  margin-top: 12px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: #555;
+}
+
+/* =========================
+   Responsive
+========================= */
+@media (max-width: 900px) {
+  .result-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .prediction-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .primary {
+    width: 100%;
+  }
+
+  .controls select {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .result-grid {
+    grid-template-columns: 1fr;
+  }
+}
