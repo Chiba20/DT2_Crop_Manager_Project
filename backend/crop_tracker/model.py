@@ -1,27 +1,51 @@
-import sqlite3
 import os
+import sqlite3
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from urllib.parse import urlparse
 
-# -----------------------------------------
-# Database configuration
-# -----------------------------------------
-# Place database outside the crop_tracker folder
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(BASE_DIR, "database.db")  # database.db outside crop_tracker
+SQLITE_PATH = os.path.join(BASE_DIR, "database.db")
 
 def get_db():
-    """Return a SQLite connection with dictionary-style rows."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")  # enable foreign keys
-    return conn
+    """
+    Uses PostgreSQL if DATABASE_URL is set (Render),
+    otherwise uses SQLite (local development).
+    """
+    db_url = os.environ.get("DATABASE_URL")
+
+    # ---- LOCAL: SQLite
+    if not db_url:
+        conn = sqlite3.connect(SQLITE_PATH)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        return conn
+
+    # ---- Render sometimes gives postgres://
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+    # ---- POSTGRESQL
+    return psycopg2.connect(db_url, cursor_factory=RealDictCursor)
+
 
 def init_db():
-    """Create all tables if they do not exist."""
-    conn = get_db()
-    cursor = conn.cursor()
+    """
+    Create tables ONLY for SQLite.
+    PostgreSQL tables should already exist.
+    """
+    db_url = os.environ.get("DATABASE_URL")
 
-    # Users table
-    cursor.execute("""
+    # If PostgreSQL → DO NOT auto-create tables
+    if db_url:
+        print("PostgreSQL detected – skipping SQLite init_db()")
+        return
+
+    # SQLite init (local only)
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE NOT NULL,
@@ -30,8 +54,7 @@ def init_db():
         )
     """)
 
-    # Crops table
-    cursor.execute("""
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS crops (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -42,8 +65,7 @@ def init_db():
         )
     """)
 
-    # Harvests table
-    cursor.execute("""
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS harvests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             crop_id INTEGER NOT NULL,
@@ -53,8 +75,7 @@ def init_db():
         )
     """)
 
-    # Reset tokens table
-    cursor.execute("""
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS reset_tokens (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -66,4 +87,3 @@ def init_db():
 
     conn.commit()
     conn.close()
-    print(f"Database initialized at: {DB_PATH}")
