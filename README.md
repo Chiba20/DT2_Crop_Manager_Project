@@ -32,8 +32,8 @@ A full-stack crop management platform that lets farmers track crop records, moni
    ```bash
    docker-compose up --build
    ```
-2. Frontend: http://localhost:3010
-3. Backend API: http://localhost:8010
+2. Frontend: http://localhost:3000
+3. Backend API: http://localhost:8000
 
 ### Option 2: Run services manually
 
