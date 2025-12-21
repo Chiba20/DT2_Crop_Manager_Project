@@ -1,70 +1,74 @@
-# Getting Started with Create React App
+# DT2 Crop Manager
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A full-stack crop management platform that lets farmers track crop records, monitor harvests, and run yield predictions. The project is split into a Flask API backend and a React SPA frontend that communicates via REST endpoints.
 
-## Available Scripts
+## Live demo
 
-In the project directory, you can run:
+- **Production site:** https://dt2-crop-manager-project.onrender.com
 
-### `npm start`
+## Tech stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **Frontend:** React, React Router, Recharts, Axios
+- **Backend:** Flask with blueprints for auth, crop, harvest, and prediction routes
+- **Containerization:** Docker + Docker Compose for local orchestration
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Project structure
 
-### `npm test`
+- `backend/` – Flask application entrypoint (`app.py`), blueprints under `crop_tracker/`, and Python dependencies in `requirements.txt`.
+- `frontend/cropmanager-frontend/` – React application (Create React App) with pages, components, and API helpers under `src/`.
+- `docker-compose.yml` – Spins up both services for local development with sensible defaults.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Local development
 
-### `npm run build`
+### Prerequisites
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- Python 3.10+ with `pip`
+- Node.js 18+ with `npm`
+- Docker (optional, for containerized setup)
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Option 1: Run with Docker Compose
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+1. Build and start both services:
+   ```bash
+   docker-compose up --build
+   ```
+2. Frontend: http://localhost:3010
+3. Backend API: http://localhost:8010
 
-### `npm run eject`
+### Option 2: Run services manually
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+**Backend (Flask)**
+1. Install dependencies:
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   ```
+2. Start the API server (defaults to port 8000):
+   ```bash
+   python app.py
+   ```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+**Frontend (React)**
+1. Install dependencies:
+   ```bash
+   cd frontend/cropmanager-frontend
+   npm install
+   ```
+2. Point the frontend at your API (optional if using the default `http://localhost:8000`):
+   ```bash
+   export REACT_APP_API_BASE=http://localhost:8000
+   ```
+3. Start the dev server (defaults to port 3000):
+   ```bash
+   npm start
+   ```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Environment variables
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+- `REACT_APP_API_BASE` – Frontend base URL for the API. Defaults to `http://localhost:8000` for local dev and is overridden in `docker-compose.yml` for containerized runs.
+- `SECRET_KEY` – Flask secret key; defaults to `MYSECRET_KEY` if not provided.
 
-## Learn More
+## Testing
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- Frontend: `npm test` from `frontend/cropmanager-frontend`
+- Backend: add your preferred test runner (e.g., `pytest`) and point it at `backend/`
