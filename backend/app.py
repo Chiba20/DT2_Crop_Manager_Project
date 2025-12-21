@@ -1,35 +1,41 @@
+import os
 from flask import Flask
 from flask_cors import CORS
+
 from crop_tracker.model import init_db
 from crop_tracker.crops import auth_routes, crop_routes
-from crop_tracker.harvest import harvest_routes  # Import harvest routes
+from crop_tracker.harvest import harvest_routes
 from crop_tracker.prediction import prediction_routes
 
-
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "MYSECRET_KEY"  # Use for sessions if needed
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "MYSECRET_KEY")
 
-# Enable CORS for frontend (development on :3000 and Docker on :3010)
+# ✅ Allow both deployed frontend + local dev
+ALLOWED_ORIGINS = [
+    "https://dt2-crop-manager-project.onrender.com",
+    "http://localhost:3000",
+    "http://localhost:3010",
+]
+
 CORS(
     app,
+    resources={r"/api/*": {"origins": ALLOWED_ORIGINS}},
     supports_credentials=True,
-    origins=["http://localhost:3000", "http://localhost:3010"],
 )
 
-# Initialize database
+# Initialize DB (SQLite local or whatever you use)
 init_db()
 
-# Register Blueprints (each blueprint already defines its own url_prefix)
+# Register Blueprints
 app.register_blueprint(auth_routes)
 app.register_blueprint(crop_routes)
-app.register_blueprint(harvest_routes)  # Register harvest routes
+app.register_blueprint(harvest_routes)
 app.register_blueprint(prediction_routes)
 
-
-# Root endpoint
 @app.route("/")
 def index():
     return "Crop Tracker Backend is running!"
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host="0.0.0.0", port=port, debug=True)
