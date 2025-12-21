@@ -9,11 +9,12 @@ from crop_tracker.prediction import prediction_routes
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "MYSECRET_KEY"  # Use for sessions if needed
 
-# Enable CORS for frontend
-CORS(app)  # Allow requests from React frontend
-
-# Enable CORS for frontend with credentials
-CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
+# Enable CORS for frontend (development on :3000 and Docker on :3010)
+CORS(
+    app,
+    supports_credentials=True,
+    origins=["http://localhost:3000", "http://localhost:3010"],
+)
 
 # Initialize database
 init_db()
@@ -31,4 +32,4 @@ def index():
     return "Crop Tracker Backend is running!"
 
 if __name__ == "__main__":
-    app.run(debug=True, port=8000)
+    app.run(debug=True, host="0.0.0.0", port=8000)

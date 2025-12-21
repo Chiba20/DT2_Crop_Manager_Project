@@ -1,6 +1,6 @@
+import API_BASE from "./config";
 
-// src/services/auth.js
-const BACKEND = "http://127.0.0.1:5000";
+const BACKEND = API_BASE;
 
 export async function register(email, password) {
   const res = await fetch(`${BACKEND}/api/register`, {

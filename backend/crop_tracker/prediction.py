@@ -1,153 +1,176 @@
+# prediction.py (FULL) — Area in acres, yield in kilograms (kg)
+
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 from crop_tracker.model import get_db
 
 prediction_routes = Blueprint("prediction_routes", __name__, url_prefix="/api")
 
-
 # -------------------------------
-# Helpers
+# Crop profiles in kg/acre (realistic ranges)
 # -------------------------------
-def parse_month(planting_date: str):
-    """Return month (1-12) from YYYY-MM-DD, else None."""
-    try:
-        return int(datetime.strptime(planting_date, "%Y-%m-%d").strftime("%m"))
-    except Exception:
-        return None
-
-
-def category_from_yield(predicted_yield: float, area: float):
-    """
-    Categorize yield using yield-per-area (simple, stable thresholds).
-    You can tune these thresholds later using your real dataset.
-    """
-    if area <= 0:
-        return "Medium"
-
-    ypa = predicted_yield / area  # yield per unit area
-
-    if ypa < 1.5:
-        return "Low"
-    elif ypa < 3.0:
-        return "Medium"
-    return "High"
-
+CROP_PROFILES = {
+    "Maize":   {"baseline": 650,  "min": 250,  "max": 1600},    # kg/acre
+    "Rice":    {"baseline": 1200, "min": 400,  "max": 2400},
+    "Beans":   {"baseline": 400,  "min": 150,  "max": 1000},
+    "Cassava": {"baseline": 4000, "min": 2000, "max": 10000},
+    "Sorghum": {"baseline": 500,  "min": 200,  "max": 1200},
+}
+DEFAULT_PROFILE = {"baseline": 800, "min": 300, "max": 2000}
 
 TIPS = {
     "Low": [
-        "Improve soil fertility with compost/manure or recommended fertilizer.",
-        "Water consistently, especially during early growth stages.",
-        "Control weeds early to reduce competition.",
+        "Add compost/manure and apply recommended fertilizer rates.",
+        "Plant on time and keep proper spacing.",
+        "Weed early and control pests/diseases quickly.",
     ],
     "Medium": [
-        "Maintain good spacing and regular weeding.",
-        "Use mulching to conserve moisture and reduce weeds.",
-        "Monitor pests/diseases weekly and treat early.",
+        "Keep regular weeding and correct spacing.",
+        "Top-dress fertilizer at the correct growth stage.",
+        "Monitor pests/diseases weekly.",
     ],
     "High": [
-        "Keep the same best practices that worked well.",
-        "Record inputs (fertilizer, irrigation) to repeat success.",
-        "Harvest on time to avoid field losses.",
+        "Keep records (seed type, fertilizer, dates) to repeat success.",
+        "Harvest on time and dry/store properly to reduce losses.",
+        "Maintain the best practices that worked.",
     ],
 }
 
 
-def train_simple_regression(samples):
+# -------------------------------
+# Helpers
+# -------------------------------
+def parse_month(date_str: str):
+    try:
+        return int(datetime.strptime(date_str, "%Y-%m-%d").strftime("%m"))
+    except Exception:
+        return None
+
+
+def clamp(x, lo, hi):
+    return max(lo, min(hi, x))
+
+
+def season_factor(month: int):
+    # Small seasonal effect (simple & safe)
+    if month in [3, 4, 5]:      # long rains
+        return 1.06
+    if month in [10, 11, 12]:   # short rains
+        return 1.03
+    if month in [6, 7, 8, 9]:   # dry-ish
+        return 0.95
+    return 1.00
+
+
+def season_name(month: int):
+    if month in [3, 4, 5]:
+        return "Long Rains"
+    if month in [10, 11, 12]:
+        return "Short Rains"
+    if month in [6, 7, 8, 9]:
+        return "Dry"
+    return "Other"
+
+
+def category_from_kg_per_acre(pred_kg_acre: float, baseline_kg_acre: float):
+    if baseline_kg_acre <= 0:
+        return "Medium"
+    ratio = pred_kg_acre / baseline_kg_acre
+    if ratio < 0.70:
+        return "Low"
+    if ratio < 1.10:
+        return "Medium"
+    return "High"
+
+
+# -------------------------------
+# Stable simple regression (ridge) on kg/acre vs month
+# Model: y = b0 + b1*month
+# -------------------------------
+def train_ridge_month_model(samples, lam=0.5):
     """
-    Simple Linear Regression with 2 features:
-      x1 = area, x2 = month_planted
-    Model: y = b0 + b1*x1 + b2*x2
-
-    This uses a light-weight closed-form solution using normal equations
-    for 3 parameters. No external ML libs required.
-
-    samples: list of tuples (area, month, yield_amount)
-    returns (b0, b1, b2) or None if can't train.
+    samples: list of (month:int, kg_per_acre:float)
+    returns (b0, b1) or None
     """
     if len(samples) < 3:
         return None
 
-    # Build X and y
-    # X = [ [1, area, month], ... ]
-    X = []
-    y = []
-    for a, m, yy in samples:
-        X.append([1.0, float(a), float(m)])
-        y.append(float(yy))
+    # Normal equation components for 2-parameter model [1, month]
+    xtx00 = 0.0
+    xtx01 = 0.0
+    xtx11 = 0.0
+    xty0 = 0.0
+    xty1 = 0.0
 
-    # Compute (X^T X) and (X^T y)
-    # 3x3 and 3x1
-    xtx = [[0.0]*3 for _ in range(3)]
-    xty = [0.0]*3
+    for m, y in samples:
+        x0 = 1.0
+        x1 = float(m)
+        y = float(y)
 
-    for i in range(len(X)):
-        for r in range(3):
-            xty[r] += X[i][r] * y[i]
-            for c in range(3):
-                xtx[r][c] += X[i][r] * X[i][c]
+        xtx00 += x0 * x0
+        xtx01 += x0 * x1
+        xtx11 += x1 * x1
 
-    # Invert 3x3 matrix xtx (manual inverse)
-    det = (
-        xtx[0][0]*(xtx[1][1]*xtx[2][2] - xtx[1][2]*xtx[2][1]) -
-        xtx[0][1]*(xtx[1][0]*xtx[2][2] - xtx[1][2]*xtx[2][0]) +
-        xtx[0][2]*(xtx[1][0]*xtx[2][1] - xtx[1][1]*xtx[2][0])
-    )
+        xty0 += x0 * y
+        xty1 += x1 * y
 
-    # If singular matrix (not invertible), can't train reliably
+    # Ridge regularization
+    xtx00 += lam
+    xtx11 += lam
+
+    det = xtx00 * xtx11 - xtx01 * xtx01
     if abs(det) < 1e-9:
         return None
 
-    inv = [[0.0]*3 for _ in range(3)]
-    inv[0][0] =  (xtx[1][1]*xtx[2][2] - xtx[1][2]*xtx[2][1]) / det
-    inv[0][1] = -(xtx[0][1]*xtx[2][2] - xtx[0][2]*xtx[2][1]) / det
-    inv[0][2] =  (xtx[0][1]*xtx[1][2] - xtx[0][2]*xtx[1][1]) / det
-    inv[1][0] = -(xtx[1][0]*xtx[2][2] - xtx[1][2]*xtx[2][0]) / det
-    inv[1][1] =  (xtx[0][0]*xtx[2][2] - xtx[0][2]*xtx[2][0]) / det
-    inv[1][2] = -(xtx[0][0]*xtx[1][2] - xtx[0][2]*xtx[1][0]) / det
-    inv[2][0] =  (xtx[1][0]*xtx[2][1] - xtx[1][1]*xtx[2][0]) / det
-    inv[2][1] = -(xtx[0][0]*xtx[2][1] - xtx[0][1]*xtx[2][0]) / det
-    inv[2][2] =  (xtx[0][0]*xtx[1][1] - xtx[0][1]*xtx[1][0]) / det
+    inv00 = xtx11 / det
+    inv01 = -xtx01 / det
+    inv10 = -xtx01 / det
+    inv11 = xtx00 / det
 
-    # beta = inv(X^T X) * (X^T y)
-    b0 = inv[0][0]*xty[0] + inv[0][1]*xty[1] + inv[0][2]*xty[2]
-    b1 = inv[1][0]*xty[0] + inv[1][1]*xty[1] + inv[1][2]*xty[2]
-    b2 = inv[2][0]*xty[0] + inv[2][1]*xty[1] + inv[2][2]*xty[2]
-
-    return (b0, b1, b2)
+    b0 = inv00 * xty0 + inv01 * xty1
+    b1 = inv10 * xty0 + inv11 * xty1
+    return (b0, b1)
 
 
-def fallback_prediction(area: float, month: int, history_yields):
+def blended_pred_kg_per_acre(month, profile, model, n_points):
     """
-    If regression can't train (too few points), we still predict:
-    predicted = avg(history) adjusted slightly by month, else area-based baseline.
+    Baseline + season factor, blended with model prediction if available.
+    More training points => trust model more.
     """
-    if history_yields:
-        avg_y = sum(history_yields) / len(history_yields)
-        # tiny season adjustment
-        factor = 1.05 if month in [3, 4, 5, 11, 12] else (0.95 if month in [6, 7, 8, 9, 10] else 1.0)
-        return max(0.0, avg_y * factor)
+    baseline = profile["baseline"] * season_factor(month)
 
-    # baseline: yield_per_area depends a bit on month
-    if month in [3, 4, 5, 11, 12]:
-        ypa = 2.2
-    elif month in [6, 7, 8, 9, 10]:
-        ypa = 1.8
-    else:
-        ypa = 2.0
-    return max(0.0, ypa * area)
+    if not model:
+        return clamp(baseline, profile["min"], profile["max"])
+
+    b0, b1 = model
+    model_pred = b0 + b1 * month
+
+    # Blend weight: 0.25..0.85
+    w = clamp(0.20 + 0.10 * n_points, 0.25, 0.85)
+    pred = (w * model_pred) + ((1.0 - w) * baseline)
+
+    return clamp(pred, profile["min"], profile["max"])
+
+
+def confidence_label(n_points, used_model):
+    if not used_model:
+        return "Low"
+    if n_points >= 10:
+        return "High"
+    if n_points >= 5:
+        return "Medium"
+    return "Low"
 
 
 # =====================================================
-# ✅ GET /api/predict/<crop_id>?user_id=1
+# GET /api/predict/<crop_id>?user_id=1
 # =====================================================
 @prediction_routes.route("/predict/<int:crop_id>", methods=["GET"])
 def predict_yield(crop_id):
     user_id = request.args.get("user_id")
-
     if not user_id:
         return jsonify({"error": "User not logged in"}), 401
 
-    # Validate user_id numeric (matches your routes)
     try:
         user_id_int = int(user_id)
     except ValueError:
@@ -155,7 +178,7 @@ def predict_yield(crop_id):
 
     conn = get_db()
 
-    # 1) Fetch crop (ownership check like harvest.py)
+    # Ownership check
     crop = conn.execute(
         "SELECT * FROM crops WHERE id=? AND user_id=?",
         (crop_id, user_id_int)
@@ -165,63 +188,86 @@ def predict_yield(crop_id):
         conn.close()
         return jsonify({"error": "Unauthorized or invalid crop"}), 403
 
-    area = float(crop["area"])
+    # Area is stored in acres
+    try:
+        area_acres = float(crop["area"])
+    except Exception:
+        conn.close()
+        return jsonify({"error": "Invalid area stored for this crop"}), 400
+
+    if area_acres <= 0:
+        conn.close()
+        return jsonify({"error": "Area must be > 0 acres"}), 400
+
     planting_date = crop["planting_date"]
     month = parse_month(planting_date)
-
     if month is None:
         conn.close()
         return jsonify({"error": "Invalid planting_date stored for this crop"}), 400
 
-    # 2) Historical data for training:
-    # Use this user's harvest data for SAME crop name (more training points)
-    # join harvests -> crops where crops.user_id = user and crops.name = same crop name
+    crop_name = (crop["name"] or "").strip()
+    profile = CROP_PROFILES.get(crop_name, DEFAULT_PROFILE)
+
+    # Training data: same crop name for this user
     rows = conn.execute("""
-        SELECT c.area AS area,
+        SELECT c.area AS area_acres,
                CAST(strftime('%m', c.planting_date) AS INTEGER) AS month_planted,
-               h.yield_amount AS yield_amount
+               h.yield_amount AS yield_kg
         FROM harvests h
         JOIN crops c ON h.crop_id = c.id
         WHERE c.user_id = ?
           AND c.name = ?
           AND c.area > 0
           AND h.yield_amount > 0
-    """, (user_id_int, crop["name"])).fetchall()
-
-    # Also keep simple history yields for fallback
-    history_yields = [float(r["yield_amount"]) for r in rows if r["yield_amount"] is not None]
+    """, (user_id_int, crop_name)).fetchall()
 
     conn.close()
 
+    # Convert training records -> kg/acre
     samples = []
     for r in rows:
-        if r["month_planted"] is None:
+        try:
+            a = float(r["area_acres"])
+            m = int(r["month_planted"])
+            y = float(r["yield_kg"])
+            if a > 0 and y > 0 and 1 <= m <= 12:
+                kg_per_acre = y / a
+                # clamp outliers (data entry errors)
+                kg_per_acre = clamp(kg_per_acre, profile["min"] * 0.5, profile["max"] * 1.5)
+                samples.append((m, kg_per_acre))
+        except Exception:
             continue
-        samples.append((r["area"], r["month_planted"], r["yield_amount"]))
 
-    # 3) Train regression (area + month)
-    model = train_simple_regression(samples)
+    model = train_ridge_month_model(samples, lam=0.5)
+    used_model = model is not None
 
-    if model:
-        b0, b1, b2 = model
-        predicted = b0 + b1 * area + b2 * month
-        predicted = max(0.0, float(predicted))
-        used_model = True
-    else:
-        predicted = fallback_prediction(area, month, history_yields)
-        used_model = False
+    pred_kg_per_acre = blended_pred_kg_per_acre(month, profile, model, len(samples))
+    pred_total_kg = pred_kg_per_acre * area_acres
 
-    category = category_from_yield(predicted, area)
+    category = category_from_kg_per_acre(pred_kg_per_acre, profile["baseline"])
+    season = season_name(month)
 
     return jsonify({
         "crop_id": crop_id,
-        "crop_name": crop["name"],
-        "area": area,
+        "crop_name": crop_name,
+        "area": area_acres,
+        "area_unit": "acres",
         "planting_date": planting_date,
         "month_planted": month,
-        "predicted_yield": round(predicted, 2),
+        "season": season,
+
+        "predicted_yield": round(pred_total_kg, 1),
+        "yield_unit": "kg",
+        "predicted_yield_per_acre": round(pred_kg_per_acre, 1),
+        "yield_per_acre_unit": "kg/acre",
+
+        "baseline_yield_per_acre": profile["baseline"],
+        "baseline_unit": "kg/acre",
+
         "yield_category": category,
         "tips": TIPS[category],
+
         "training_points": len(samples),
-        "used_regression_model": used_model
+        "used_regression_model": used_model,
+        "confidence": confidence_label(len(samples), used_model),
     }), 200

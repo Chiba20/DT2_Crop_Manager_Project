@@ -1,4 +1,6 @@
-const BACKEND = "http://127.0.0.1:8000";
+import API_BASE from "./config";
+
+const BACKEND = API_BASE;
 
 // -----------------------------
 // CROPS API

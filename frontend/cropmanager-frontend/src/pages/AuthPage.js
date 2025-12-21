@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import API_BASE from "../services/config";
 import "../styles/Auth.css";
 
 export default function AuthPage() {
@@ -52,7 +53,7 @@ export default function AuthPage() {
     const body = mode === "reset" ? { email: form.email } : form;
 
     try {
-      const res = await fetch(`http://127.0.0.1:5000${endpoint}`, {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
