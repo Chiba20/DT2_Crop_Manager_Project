@@ -61,7 +61,7 @@ export default function HarvestStatsPage() {
   const [selectedCrop, setSelectedCrop] = useState("");
   const [cropYearDetail, setCropYearDetail] = useState(null);
 
-  // Range controls (for range charts)
+  // Range controls
   const [fromYear, setFromYear] = useState("");
   const [toYear, setToYear] = useState("");
   const [topN, setTopN] = useState(6);
@@ -87,7 +87,6 @@ export default function HarvestStatsPage() {
       try {
         if (!userId) throw new Error("User not found. Please login again.");
 
-        // Main stats (table + summary cards)
         const data = await getHarvestStats(userId);
         const s = data.stats || [];
         setStats(s);
@@ -101,7 +100,6 @@ export default function HarvestStatsPage() {
 
         if (s.length) setSelectedCrop(s[0].crop_name);
 
-        // Years list (from yearly summary)
         const yearly = await getYearlySummary(userId);
         const y = (yearly.yearly || []).map((r) => ({
           year: String(r.year),
@@ -109,11 +107,7 @@ export default function HarvestStatsPage() {
         }));
         setYearlyTotals(y);
 
-        const years = y
-          .map((r) => Number(r.year))
-          .filter(Boolean)
-          .sort((a, b) => a - b);
-
+        const years = y.map((r) => Number(r.year)).filter(Boolean).sort((a, b) => a - b);
         setYearOptions(years);
 
         if (years.length) {
@@ -150,17 +144,15 @@ export default function HarvestStatsPage() {
     loadCropYear();
   }, [userId, selectedCrop, selectedYear]);
 
-  // ===== Range charts (compare + seasonality + distribution) =====
+  // ===== Range charts =====
   useEffect(() => {
     async function loadRangeCharts() {
       try {
         if (!userId || !fromYear || !toYear) return;
 
-        // Compare (top N crops across years)
         const cmp = await getTopCropsYearly(userId, fromYear, toYear, topN);
         setCompare({ top_names: cmp.top_names || [], series: cmp.series || [] });
 
-        // Seasonality (12 months)
         const seas = await getSeasonality(userId, fromYear, toYear);
         const monthMap = new Map(
           (seas.monthly || []).map((m) => [Number(m.month), Number(m.total_yield || 0)])
@@ -172,7 +164,6 @@ export default function HarvestStatsPage() {
           }))
         );
 
-        // Distribution (bucket counts)
         const dist = await getDistribution(userId, fromYear, toYear);
         setDistribution(
           (dist.buckets || []).map((b) => ({
@@ -187,7 +178,6 @@ export default function HarvestStatsPage() {
     loadRangeCharts();
   }, [userId, fromYear, toYear, topN]);
 
-  // ===== Crop-year pie =====
   const cropYearPie = useMemo(() => {
     if (!cropYearDetail) return [];
     return [
@@ -196,7 +186,6 @@ export default function HarvestStatsPage() {
     ];
   }, [cropYearDetail]);
 
-  // ===== Crop-year monthly yield (12 months) =====
   const cropYearMonthly = useMemo(() => {
     if (!cropYearDetail) return [];
     const monthMap = new Map(
@@ -208,7 +197,6 @@ export default function HarvestStatsPage() {
     }));
   }, [cropYearDetail]);
 
-  // ===== Compare totals bar (for top crops in range) =====
   const totalsBar = useMemo(() => {
     const totals = {};
     for (const name of compare.top_names || []) totals[name] = 0;
@@ -225,7 +213,6 @@ export default function HarvestStatsPage() {
     }));
   }, [compare]);
 
-  // ===== Filter yearly totals by range =====
   const yearlyTotalsRange = useMemo(() => {
     if (!fromYear || !toYear) return yearlyTotals;
     const f = Number(fromYear);
@@ -245,7 +232,6 @@ export default function HarvestStatsPage() {
 
       {!loading && !error && (
         <>
-          {/* ✅ Summary cards */}
           <div className="summary-grid">
             <div className="summary-card">
               <h3>Total Harvest</h3>
@@ -261,7 +247,6 @@ export default function HarvestStatsPage() {
             </div>
           </div>
 
-          {/* ✅ Table (top) + pagination + last cropping date */}
           <div className="card">
             <h2>📋 Harvest Summary</h2>
 
@@ -301,7 +286,6 @@ export default function HarvestStatsPage() {
             )}
           </div>
 
-          {/* ✅ 🎯 Crop + Year Filter (right after table) */}
           <div className="card">
             <div className="card-header">
               <h2>🎯 Crop + Year Filter</h2>
@@ -375,7 +359,6 @@ export default function HarvestStatsPage() {
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      {/* ✅ NO BLACK */}
                       <Bar dataKey="yield" fill={BAR_PRIMARY} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -384,7 +367,6 @@ export default function HarvestStatsPage() {
             </div>
           </div>
 
-          {/* ✅ Year range controls */}
           <div className="card">
             <div className="card-header">
               <h2>📅 Year Range</h2>
@@ -426,7 +408,6 @@ export default function HarvestStatsPage() {
             </div>
           </div>
 
-          {/* ✅ 📈 Crop Harvest Comparison Across Years */}
           <div className="card">
             <div className="card-header">
               <h2>📈 Crop Harvest Comparison Across Years</h2>
@@ -466,7 +447,6 @@ export default function HarvestStatsPage() {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    {/* ✅ NO BLACK */}
                     <Bar dataKey="total" fill={BAR_LIGHT} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -474,7 +454,6 @@ export default function HarvestStatsPage() {
             </div>
           </div>
 
-          {/* ✅ Big-data safe charts (no crop labels explosion) */}
           <div className="chart-grid">
             <div className="card">
               <h2>📈 Total Harvest per Year</h2>
@@ -499,7 +478,6 @@ export default function HarvestStatsPage() {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  {/* ✅ NO BLACK */}
                   <Bar dataKey="total_yield" fill={BAR_PRIMARY} />
                 </BarChart>
               </ResponsiveContainer>
@@ -514,7 +492,6 @@ export default function HarvestStatsPage() {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  {/* ✅ NO BLACK */}
                   <Bar dataKey="count" fill={BAR_DARK} />
                 </BarChart>
               </ResponsiveContainer>

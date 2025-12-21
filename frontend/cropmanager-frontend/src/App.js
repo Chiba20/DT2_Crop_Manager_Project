@@ -1,31 +1,33 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-// Import Pages
 import AuthPage from "./pages/AuthPage";
 import DashboardPage from "./pages/DashboardPage";
 import CropPage from "./pages/CropPage";
 import HarvestPage from "./pages/HarvestPage";
-import HarvestStatsPage from "./pages/HarvestStatsPage"; // Import the Harvest Stats Page
+import HarvestStatsPage from "./pages/HarvestStatsPage";
+import YieldPredictor from "./pages/YieldPredictor";
+
+
+import Layout from "./components/Layout";
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* AuthPage for login */}
+        {/* Public */}
         <Route path="/" element={<AuthPage />} />
 
-        {/* DashboardPage for displaying crops and harvest stats */}
-        <Route path="/dashboard" element={<DashboardPage />} />
+        {/* Protected */}
+        <Route element={<Layout />}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/crop" element={<CropPage />} />
+          <Route path="/harvest/:cropId" element={<HarvestPage />} />
+          <Route path="/harvest-stats" element={<HarvestStatsPage />} />
 
-        {/* CropPage for adding a new crop */}
-        <Route path="/crop" element={<CropPage />} />
-
-        {/* HarvestPage to record harvest for a specific crop */}
-        <Route path="/harvest/:cropId" element={<HarvestPage />} />
-
-        {/* Harvest Stats Page for displaying harvest statistics */}
-        <Route path="/harvest-stats" element={<HarvestStatsPage />} />
+          {/* Module 3 */}
+          <Route path="/predict" element={<YieldPredictor />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );

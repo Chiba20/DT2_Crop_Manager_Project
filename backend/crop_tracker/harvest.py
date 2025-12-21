@@ -60,7 +60,6 @@ def add_harvest(crop_id, user_id):
 
 # =====================================================
 # GET /api/harvests?user_id=1
-# (Optional list of harvest records)
 # =====================================================
 @harvest_routes.route("/harvests", methods=["GET"])
 def get_harvests():
@@ -70,14 +69,14 @@ def get_harvests():
 
     conn = get_db()
     harvests = conn.execute("""
-        SELECT harvests.id,
-               crops.name AS crop_name,
-               harvests.date,
-               harvests.yield_amount
-        FROM harvests
-        JOIN crops ON harvests.crop_id = crops.id
-        WHERE crops.user_id = ?
-        ORDER BY harvests.date DESC
+        SELECT h.id,
+               c.name AS crop_name,
+               h.date,
+               h.yield_amount
+        FROM harvests h
+        JOIN crops c ON h.crop_id = c.id
+        WHERE c.user_id = ?
+        ORDER BY h.date DESC
     """, (user_id,)).fetchall()
     conn.close()
 
@@ -86,7 +85,6 @@ def get_harvests():
 
 # =====================================================
 # GET /api/harvests/stats?user_id=1
-# ✅ includes last_cropping_date
 # =====================================================
 @harvest_routes.route("/harvests/stats", methods=["GET"])
 def get_harvest_stats():
@@ -96,19 +94,19 @@ def get_harvest_stats():
 
     conn = get_db()
     stats = conn.execute("""
-        SELECT crops.name AS crop_name,
-               SUM(harvests.yield_amount) AS total_yield,
-               AVG(harvests.yield_amount) AS avg_yield,
-               COUNT(harvests.id) AS harvest_count,
-               MAX(harvests.date) AS last_cropping_date
-        FROM harvests
-        JOIN crops ON harvests.crop_id = crops.id
-        WHERE crops.user_id = ?
-        GROUP BY crops.name
+        SELECT c.name AS crop_name,
+               SUM(h.yield_amount) AS total_yield,
+               AVG(h.yield_amount) AS avg_yield,
+               COUNT(h.id) AS harvest_count,
+               MAX(h.date) AS last_cropping_date
+        FROM harvests h
+        JOIN crops c ON h.crop_id = c.id
+        WHERE c.user_id = ?
+        GROUP BY c.name
         ORDER BY total_yield DESC
     """, (user_id,)).fetchall()
 
-    overall_total = sum(row["total_yield"] or 0 for row in stats)
+    overall_total = sum((row["total_yield"] or 0) for row in stats)
     conn.close()
 
     return jsonify({
@@ -127,7 +125,6 @@ def get_harvest_stats():
 
 
 # =====================================================
-# ✅ Yearly totals
 # GET /api/harvests/summary/yearly?user_id=1
 # =====================================================
 @harvest_routes.route("/harvests/summary/yearly", methods=["GET"])
@@ -154,15 +151,14 @@ def summary_yearly():
 
 
 # =====================================================
-# ✅ Top N crops yearly + Others (used for comparison line chart)
-# GET /api/harvests/summary/top-crops-yearly?user_id=1&from=2023&to=2025&top=6
+# GET /api/harvests/summary/top-crops-yearly?user_id=1&from=2023&to=2025&top=10
 # =====================================================
 @harvest_routes.route("/harvests/summary/top-crops-yearly", methods=["GET"])
 def top_crops_yearly():
     user_id = request.args.get("user_id")
     year_from = request.args.get("from", type=int)
     year_to = request.args.get("to", type=int)
-    top_n = request.args.get("top", default=6, type=int)
+    top_n = request.args.get("top", default=10, type=int)
 
     if not user_id:
         return jsonify({"error": "User not logged in"}), 401
@@ -171,7 +167,7 @@ def top_crops_yearly():
     if year_from > year_to:
         return jsonify({"error": "from year must be <= to year"}), 400
 
-    top_n = max(1, min(top_n, 15))
+    top_n = max(1, min(top_n, 30))
 
     conn = get_db()
 
@@ -199,6 +195,7 @@ def top_crops_yearly():
         GROUP BY year
         ORDER BY year
     """, (user_id, year_from, year_to)).fetchall()
+
     all_total_by_year = {int(r["year"]): float(r["total_yield"] or 0) for r in all_totals}
 
     top_year_crop = []
@@ -244,7 +241,6 @@ def top_crops_yearly():
 
 
 # =====================================================
-# ✅ Crop + Year filter (planted vs harvested + monthly yield)
 # GET /api/harvests/filter/crop-year?user_id=1&crop=Maize&year=2024
 # =====================================================
 @harvest_routes.route("/harvests/filter/crop-year", methods=["GET"])
@@ -307,10 +303,9 @@ def crop_year_filter():
 
 
 # =====================================================
-# ✅ NEW: Seasonality (12 months) for a year range
-# GET /api/harvests/summary/seasonality?user_id=1&from=2023&to=2025
+# GET /api/harvests/seasonality?user_id=1&from=2023&to=2025
 # =====================================================
-@harvest_routes.route("/harvests/summary/seasonality", methods=["GET"])
+@harvest_routes.route("/harvests/seasonality", methods=["GET"])
 def seasonality():
     user_id = request.args.get("user_id")
     year_from = request.args.get("from", type=int)
@@ -320,8 +315,6 @@ def seasonality():
         return jsonify({"error": "User not logged in"}), 401
     if year_from is None or year_to is None:
         return jsonify({"error": "from and to years are required"}), 400
-    if year_from > year_to:
-        return jsonify({"error": "from year must be <= to year"}), 400
 
     conn = get_db()
     rows = conn.execute("""
@@ -337,18 +330,14 @@ def seasonality():
     conn.close()
 
     return jsonify({
-        "from": year_from,
-        "to": year_to,
         "monthly": [{"month": int(r["month"]), "total_yield": float(r["total_yield"] or 0)} for r in rows]
     }), 200
 
 
 # =====================================================
-# ✅ NEW: Yield distribution (bucket bars) in year range
-# GET /api/harvests/summary/distribution?user_id=1&from=2023&to=2025
-# Buckets based on each harvest record yield_amount
+# GET /api/harvests/distribution?user_id=1&from=2023&to=2025
 # =====================================================
-@harvest_routes.route("/harvests/summary/distribution", methods=["GET"])
+@harvest_routes.route("/harvests/distribution", methods=["GET"])
 def distribution():
     user_id = request.args.get("user_id")
     year_from = request.args.get("from", type=int)
@@ -358,44 +347,27 @@ def distribution():
         return jsonify({"error": "User not logged in"}), 401
     if year_from is None or year_to is None:
         return jsonify({"error": "from and to years are required"}), 400
-    if year_from > year_to:
-        return jsonify({"error": "from year must be <= to year"}), 400
-
-    # fixed buckets (practical for farmers)
-    # you can adjust later if needed
-    buckets = [
-        {"label": "0–50 kg", "min": 0, "max": 50},
-        {"label": "50–200 kg", "min": 50, "max": 200},
-        {"label": "200–500 kg", "min": 200, "max": 500},
-        {"label": "500–1000 kg", "min": 500, "max": 1000},
-        {"label": "1000+ kg", "min": 1000, "max": None},
-    ]
 
     conn = get_db()
     rows = conn.execute("""
-        SELECT h.yield_amount AS y
+        SELECT
+          CASE
+            WHEN h.yield_amount < 10 THEN '0-9'
+            WHEN h.yield_amount < 50 THEN '10-49'
+            WHEN h.yield_amount < 100 THEN '50-99'
+            WHEN h.yield_amount < 200 THEN '100-199'
+            ELSE '200+'
+          END AS label,
+          COUNT(*) AS count
         FROM harvests h
         JOIN crops c ON h.crop_id = c.id
         WHERE c.user_id = ?
           AND CAST(strftime('%Y', h.date) AS INTEGER) BETWEEN ? AND ?
+        GROUP BY label
+        ORDER BY count DESC
     """, (user_id, year_from, year_to)).fetchall()
     conn.close()
 
-    counts = [0] * len(buckets)
-    for r in rows:
-        y = float(r["y"] or 0)
-        for i, b in enumerate(buckets):
-            if b["max"] is None:
-                if y >= b["min"]:
-                    counts[i] += 1
-                    break
-            else:
-                if y >= b["min"] and y < b["max"]:
-                    counts[i] += 1
-                    break
-
     return jsonify({
-        "from": year_from,
-        "to": year_to,
-        "buckets": [{"label": buckets[i]["label"], "count": counts[i]} for i in range(len(buckets))]
+        "buckets": [{"label": r["label"], "count": int(r["count"] or 0)} for r in rows]
     }), 200
