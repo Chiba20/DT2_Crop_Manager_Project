@@ -134,7 +134,7 @@ export default function DashboardPage() {
             </thead>
 
             <tbody>
-              {Crops.map((crop) => (
+              {Array.isArray(crops) && crops.map((crop) => (
                 <tr key={crop.id}>
                   <td>
                     {editingId === crop.id ? (

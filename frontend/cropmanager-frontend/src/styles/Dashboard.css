@@ -137,8 +137,9 @@
   color: #777;
 }
 
-.prediction.error {
+ .prediction.error {
   color: #b00020;
+}
 
 /* Pagination */
 .pagination button {
