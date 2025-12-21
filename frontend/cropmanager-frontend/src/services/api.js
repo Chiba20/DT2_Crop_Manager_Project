@@ -50,67 +50,69 @@ export async function recordHarvest(cropId, userId, payload) {
     const err = await res.json();
     throw new Error(err.error || "Failed to record harvest");
   }
-
   return res.json();
 }
 
-// ✅ stats
 export async function getHarvestStats(userId) {
-  const res = await fetch(`${BACKEND}/api/harvests/stats?user_id=${userId}`, {
-    method: "GET",
-  });
-
+  const res = await fetch(`${BACKEND}/api/harvests/stats?user_id=${userId}`);
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.error || "Failed to fetch harvest statistics");
   }
-
   return res.json();
 }
 
-// ✅ list harvest rows (FIXED route)
-export async function getUserHarvests(userId) {
-  const res = await fetch(`${BACKEND}/api/harvests?user_id=${userId}`, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-  });
-
+export async function getYearlySummary(userId) {
+  const res = await fetch(`${BACKEND}/api/harvests/summary/yearly?user_id=${userId}`);
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.error || "Failed to fetch harvests");
+    throw new Error(err.error || "Failed to fetch yearly summary");
   }
-
   return res.json();
 }
 
-// ✅ NEW: monthly for selected crop
-export async function getMonthlyByCrop(userId, cropName, year = "") {
-  const y = year ? `&year=${year}` : "";
+export async function getTopCropsYearly(userId, fromYear, toYear, top = 6) {
   const res = await fetch(
-    `${BACKEND}/api/harvests/monthly?user_id=${userId}&crop=${encodeURIComponent(cropName)}${y}`,
-    { method: "GET" }
+    `${BACKEND}/api/harvests/summary/top-crops-yearly?user_id=${userId}&from=${fromYear}&to=${toYear}&top=${top}`
   );
-
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.error || "Failed to fetch monthly crop data");
+    throw new Error(err.error || "Failed to fetch crops comparison");
   }
-
   return res.json();
 }
 
-// ✅ NEW: trend for all crops per month
-export async function getTrend(userId, year = "") {
-  const y = year ? `&year=${year}` : "";
+export async function getCropYearFilter(userId, cropName, year) {
   const res = await fetch(
-    `${BACKEND}/api/harvests/trend?user_id=${userId}${y}`,
-    { method: "GET" }
+    `${BACKEND}/api/harvests/filter/crop-year?user_id=${userId}&crop=${encodeURIComponent(cropName)}&year=${year}`
   );
-
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.error || "Failed to fetch trend data");
+    throw new Error(err.error || "Failed to fetch crop-year detail");
   }
+  return res.json();
+}
 
+// ✅ NEW: seasonality
+export async function getSeasonality(userId, fromYear, toYear) {
+  const res = await fetch(
+    `${BACKEND}/api/harvests/summary/seasonality?user_id=${userId}&from=${fromYear}&to=${toYear}`
+  );
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "Failed to fetch seasonality");
+  }
+  return res.json();
+}
+
+// ✅ NEW: yield distribution buckets
+export async function getDistribution(userId, fromYear, toYear) {
+  const res = await fetch(
+    `${BACKEND}/api/harvests/summary/distribution?user_id=${userId}&from=${fromYear}&to=${toYear}`
+  );
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "Failed to fetch distribution");
+  }
   return res.json();
 }
