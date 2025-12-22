@@ -136,11 +136,11 @@ Base URL: `/api`
   - Response: `200 OK` `{ "message": "Crop updated successfully!" }`
 - **DELETE** `/api/crop/<crop_id>/<user_id>`
   - Response: `200 OK` `{ "message": "Crop deleted successfully!" }`
-
-## Harvests
 - **POST** `/api/harvest/<crop_id>/<user_id>`
   - Body: `{ "date": "2025-04-10", "yield_amount": 120.5 }`
   - Response: `201 Created` `{ "message": "Harvest recorded successfully" }`
+
+## Harvests
 - **GET** `/api/harvests?user_id=1`
   - Response: `200 OK` `[ { "id": 3, "crop_name": "Maize", "date": "2025-04-10", "yield_amount": 120.5 } ]`
 - **GET** `/api/harvests/stats?user_id=1`
