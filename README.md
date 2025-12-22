@@ -212,8 +212,8 @@ Use this checklist to ensure the final hand-in meets course requirements.
 - **API docs:** See `docs/API.md` (export Postman/Swagger if desired).
 - **Architecture diagram:** See `docs/ARCHITECTURE.md`.
 - **AI/ML notes:** See `docs/AI_MODEL.md` (model choice, data source, evaluation).
-- **Video demo (5–7 minutes):** _Add link here_.
-- **Presentation slides:** _Add link here_.
-- **Individual contribution report:** _Add link here (who built which module)_.
+- **Video demo (5–7 minutes):** https://drive.google.com/file/d/1GmYeiXvurCEa-eBIDSuYQYtDfHAw96hN/view?usp=sharing
+- **Presentation slides:** https://drive.google.com/file/d/1xBa0DXQfLITwFaDxbFhEaXkLM0H2UvEi/view?usp=sharing
+- **Individual contribution :** Ayman Hamza Haji (Module1: Crop tracker) , Nas-bah Khamis Isaa (Module2: Harvest Dashboard) , Nabiha walid Kassim (Module3: Yield Predictor).
 - **Environment variables:** Documented in README and deployment settings; no secrets in git.
 - **GitHub Actions:** CI workflow in `.github/workflows/ci.yml` (backend + frontend tests).
