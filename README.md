@@ -106,3 +106,114 @@ DT2 Crop Manager helps farming teams keep all their crop information in one plac
 - Centralizes crop history so teams can avoid siloed spreadsheets.
 - Tracks harvest performance against expectations to surface underperforming fields.
 - Provides quick forecasts that support planning for sales, storage, and logistics.
+
+# API Documentation
+
+Base URL: `/api`
+
+## Authentication
+- **POST** `/api/register`
+  - Body: `{ "email": "user@example.com", "username": "farmer1", "password": "secret123" }`
+  - Response: `201 Created` `{ "success": true, "userId": 1 }`
+- **POST** `/api/login`
+  - Body: `{ "email": "user@example.com", "password": "secret123" }`
+  - Response: `200 OK` `{ "success": true, "userId": 1 }`
+- **POST** `/api/reset-password`
+  - Body: `{ "email": "user@example.com" }`
+  - Response: `200 OK` `{ "success": true, "token": "uuid" }`
+- **POST** `/api/reset-password/<token>`
+  - Body: `{ "password": "newSecret123" }`
+  - Response: `200 OK` `{ "success": true, "message": "Password reset successful" }`
+
+## Crops
+- **POST** `/api/crop/<user_id>`
+  - Body: `{ "name": "Maize", "area": 2.5, "planting_date": "2025-02-01" }`
+  - Response: `201 Created` `{ "message": "Crop added successfully!" }`
+- **GET** `/api/crop/<user_id>?page=1&limit=5`
+  - Response: `200 OK` `{ "data": [...], "page": 1, "limit": 5, "total": 10 }`
+- **PUT** `/api/crop/<crop_id>/<user_id>`
+  - Body: `{ "name": "Beans", "area": 1.2, "planting_date": "2025-03-01" }`
+  - Response: `200 OK` `{ "message": "Crop updated successfully!" }`
+- **DELETE** `/api/crop/<crop_id>/<user_id>`
+  - Response: `200 OK` `{ "message": "Crop deleted successfully!" }`
+
+## Harvests
+- **POST** `/api/harvest/<crop_id>/<user_id>`
+  - Body: `{ "date": "2025-04-10", "yield_amount": 120.5 }`
+  - Response: `201 Created` `{ "message": "Harvest recorded successfully" }`
+- **GET** `/api/harvests?user_id=1`
+  - Response: `200 OK` `[ { "id": 3, "crop_name": "Maize", "date": "2025-04-10", "yield_amount": 120.5 } ]`
+- **GET** `/api/harvests/stats?user_id=1`
+  - Response: Aggregates by crop `{ "stats": [...], "overall_total_yield": 400 }`
+- **GET** `/api/harvests/summary/yearly?user_id=1`
+  - Response: `{ "yearly": [ { "year": "2024", "total_yield": 500 } ] }`
+- **GET** `/api/harvests/summary/top-crops-yearly?user_id=1&from=2023&to=2025&top=5`
+  - Response: `{ "from": 2023, "to": 2025, "top": 5, "top_names": ["Maize"], "series": [...] }`
+- **GET** `/api/harvests/filter/crop-year?user_id=1&crop=Maize&year=2025`
+  - Response: `{ "crop": "Maize", "year": 2025, "planted_count": 2, "harvest_events": 3, "total_yield": 320, "avg_yield": 106.7, "monthly": [...] }`
+- **GET** `/api/harvests/seasonality?user_id=1&from=2023&to=2025`
+  - Response: `{ "monthly": [ { "month": 1, "total_yield": 50 } ] }`
+- **GET** `/api/harvests/distribution?user_id=1&from=2023&to=2025`
+  - Response: `{ "buckets": [ { "label": "0-9", "count": 2 } ] }`
+
+## Predictions (AI)
+- **GET** `/api/predict/<crop_id>?user_id=1`
+  - Response: `200 OK` with predicted yield, per-acre estimate, confidence, category, and tips.
+  - Example: `{ "predicted_yield": 1340.5, "yield_unit": "kg", "yield_category": "Medium", "tips": ["Keep regular weeding and correct spacing.", ...] }`
+
+### Error handling
+- Invalid input returns a `400` with an `error` message.
+- Unauthorized/unknown resources return `401` or `403` depending on the route.
+docs/ARCHITECTURE.md
+New
++32
+-0
+
+# Architecture Overview
+
+The system is a two-service stack: a React single-page app that calls a Flask API. Both services are containerized and orchestrated together for local development and cloud deployment.
+
+```mermaid
+graph TD
+  Browser[User Browser]
+  Frontend[React SPA]
+  Backend[Flask API]
+  DB[(SQLite/PostgreSQL)]
+
+  Browser --> Frontend
+  Frontend -->|REST/JSON over HTTPS| Backend
+  Backend -->|SQL| DB
+```
+
+## Components
+- **Frontend (React)**: Handles routing, forms for crop and harvest entry, dashboard charts, and calls prediction endpoints. Axios is configured with `REACT_APP_API_BASE` to reach the Flask API.
+- **Backend (Flask)**: Blueprints for authentication, crops, harvest analytics, and yield prediction. CORS is enabled for both the deployed site and local dev origins.
+- **Database**: SQLite by default for local development; switches to PostgreSQL automatically when `DATABASE_URL` is provided (Render deployment).
+- **Containerization**: `docker-compose.yml` builds and runs both services with port mappings (3000 for frontend, 8000 for backend) and shared environment variables.
+
+## Data flow
+1. Users authenticate through `/api/login` and receive a session-bound user id.
+2. Crop and harvest forms POST to `/api/crop/<user_id>` and `/api/harvest/<crop_id>/<user_id>`; records are persisted in the database.
+3. Dashboard views fetch analytics via `/api/harvests/...` routes for stats, yearly summaries, and distributions.
+4. The AI module reads crop and harvest history to predict yields via `/api/predict/<crop_id>`, returning categories and actionable tips.
+
+## Deployment
+- **Render** hosts both services; PostgreSQL is used when available via `DATABASE_URL`.
+- **GitHub Actions** builds and tests backend and frontend on pushes/PRs to `main` and `dev`.
+- **Environment variables**: `REACT_APP_API_BASE` (frontend API base), `SECRET_KEY` (Flask sessions), `DATABASE_URL` (PostgreSQL DSN when deployed).
+
+  # Submission Artifacts
+
+Use this checklist to ensure the final hand-in meets course requirements.
+
+- **GitHub repository:** https://github.com/your-team/dt2-crop-manager (add all collaborators + instructors).
+- **Branches:** `main` (protected) and `dev` with feature branches merged via PRs.
+- **Live deployment URL:** https://dt2-crop-manager-project.onrender.com
+- **API docs:** See `docs/API.md` (export Postman/Swagger if desired).
+- **Architecture diagram:** See `docs/ARCHITECTURE.md`.
+- **AI/ML notes:** See `docs/AI_MODEL.md` (model choice, data source, evaluation).
+- **Video demo (5–7 minutes):** _Add link here_.
+- **Presentation slides:** _Add link here_.
+- **Individual contribution report:** _Add link here (who built which module)_.
+- **Environment variables:** Documented in README and deployment settings; no secrets in git.
+- **GitHub Actions:** CI workflow in `.github/workflows/ci.yml` (backend + frontend tests).
