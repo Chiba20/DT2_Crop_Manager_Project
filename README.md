@@ -216,4 +216,4 @@ Use this checklist to ensure the final hand-in meets course requirements.
 - **Presentation slides:** https://drive.google.com/file/d/1xBa0DXQfLITwFaDxbFhEaXkLM0H2UvEi/view?usp=sharing
 - **Individual contribution :** Ayman Hamza Haji (Module1: Crop tracker) , Nas-bah Khamis Isaa (Module2: Harvest Dashboard) , Nabiha walid Kassim (Module3: Yield Predictor).
 - **Environment variables:** Documented in README and deployment settings; no secrets in git.
-- **GitHub Actions:** CI workflow in `.github/workflows/ci.yml` (backend + frontend tests).
+- **GitHub Actions:** CI workflow in (backend + frontend tests).
