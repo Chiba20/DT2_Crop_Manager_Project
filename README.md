@@ -206,7 +206,7 @@ graph TD
 
 Use this checklist to ensure the final hand-in meets course requirements.
 
-- **GitHub repository:**https://github.com/Chiba20/DT2_Crop_Manager_Project.git (add all collaborators + instructors).
+- **GitHub repository:** https://github.com/Chiba20/DT2_Crop_Manager_Project.git (add all collaborators + instructors).
 - **Branches:** `main` (protected) and `dev` with feature branches merged via PRs.
 - **Live deployment URL:** https://dt2-crop-manager-project.onrender.com
 - **API docs:** See `docs/API.md` (export Postman/Swagger if desired).
